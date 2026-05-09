@@ -2,29 +2,51 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>💠 NVTULKA — Жидкое стекло + неон</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💠</text></svg>">
     <style>
-        /* ====== НИЖНЯЯ ПАНЕЛЬ В СТИЛЕ TELEGRAM IPHONE ====== */
+        /* ====== НИЖНЯЯ ПАНЕЛЬ — ПЕРЕТАСКИВАЕМАЯ КАПЛЯ СТЕКЛА ====== */
+        :root {
+            --tg-nav-height: 76px;
+            --tg-nav-padding-bottom: 18px;
+            --tg-indicator-size: 36px;
+        }
+
+        body {
+            padding-bottom: calc(var(--tg-nav-height) + 8px);
+        }
+
         .tg-bottom-nav {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            height: 82px;
-            padding-bottom: 20px;
+            height: var(--tg-nav-height);
+            padding-bottom: var(--tg-nav-padding-bottom);
             background: var(--bg-bottom-nav);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
             border-top: 0.5px solid var(--border-subtle);
             z-index: 1000;
             display: flex;
             align-items: center;
-            justify-content: space-around;
-            padding-left: 4px;
-            padding-right: 4px;
+            padding-left: 6px;
+            padding-right: 6px;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .tg-nav-track {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
         }
 
         .tg-nav-item {
@@ -32,29 +54,32 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
+            gap: 0px;
             color: var(--text-tertiary);
             text-decoration: none;
-            font-size: 1.35rem;
-            padding: 6px 12px;
+            font-size: 1.4rem;
+            padding: 6px 0;
             border-radius: 14px;
-            transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+            transition: color 0.2s ease;
             position: relative;
-            min-width: 50px;
-            -webkit-tap-highlight-color: transparent;
+            z-index: 2;
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
         }
 
         .tg-nav-item span {
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 500;
             letter-spacing: 0.1px;
             opacity: 0;
-            transform: translateY(2px);
-            transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+            transform: translateY(3px);
+            transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+            margin-top: 1px;
         }
 
         .tg-nav-item.active {
-            color: var(--accent-primary);
+            color: #ffffff;
         }
 
         .tg-nav-item.active span {
@@ -62,63 +87,80 @@
             transform: translateY(0);
         }
 
-        /* Индикатор — скользящая точка */
-        .tg-nav-indicator {
+        /* Капля-индикатор */
+        .tg-nav-droplet {
             position: absolute;
-            bottom: 24px;
-            height: 3px;
-            width: 20px;
+            bottom: calc(var(--tg-nav-padding-bottom) - 2px);
+            height: 30px;
+            width: 48px;
             background: var(--accent-primary);
-            border-radius: 3px;
-            transition: left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 0 10px var(--accent-primary-glow);
-            z-index: 0;
+            border-radius: 18px;
+            z-index: 1;
+            box-shadow:
+                0 0 18px var(--accent-primary-glow),
+                0 0 40px rgba(179, 71, 234, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            transition: left 0.06s linear;
+            pointer-events: none;
+            will-change: left, width, border-radius, height;
         }
 
-        /* Пульсация при нажатии */
-        .tg-nav-item:active {
-            transform: scale(0.88);
-            transition: transform 0.12s cubic-bezier(0.25, 0.1, 0.25, 1);
+        .tg-nav-droplet::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 10px;
+            right: 10px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.35);
+            border-radius: 50%;
+            filter: blur(2px);
         }
 
-        /* Бейдж уведомлений */
+        /* При удержании пальца — капля расширяется */
+        .tg-nav-droplet.dragging {
+            width: 64px;
+            height: 34px;
+            border-radius: 22px;
+            box-shadow:
+                0 0 28px var(--accent-primary-glow),
+                0 0 60px rgba(179, 71, 234, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            transition: width 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        height 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        border-radius 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Бейдж */
         .tg-nav-badge {
             position: absolute;
-            top: 1px;
-            right: 2px;
-            width: 16px;
-            height: 16px;
+            top: 0px;
+            right: calc(50% - 20px);
+            width: 15px;
+            height: 15px;
             background: var(--danger);
             border-radius: 50%;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
-            color: white;
+            color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 8px var(--danger-glow);
+            box-shadow: 0 0 10px var(--danger-glow);
+            z-index: 3;
             animation: badge-pulse 2s ease-in-out infinite;
         }
 
         @keyframes badge-pulse {
             0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-        }
-
-        /* Адаптация контента */
-        body {
-            padding-bottom: 85px;
+            50% { transform: scale(1.2); }
         }
 
         @media (max-width: 380px) {
-            .tg-nav-item {
-                font-size: 1.2rem;
-                padding: 4px 8px;
-                min-width: 40px;
-            }
-            .tg-nav-item span {
-                font-size: 9px;
-            }
+            .tg-nav-item { font-size: 1.25rem; }
+            .tg-nav-item span { font-size: 8px; }
+            .tg-nav-droplet { width: 40px; height: 26px; }
+            .tg-nav-droplet.dragging { width: 54px; height: 30px; }
         }
     </style>
 </head>
@@ -129,7 +171,7 @@
     {% endif %}
 
     <header class="header">
-        <a href="/" class="header-logo" id="adminLogo" title="NVTULKA">
+        <a href="/" class="header-logo" id="adminLogo" title="NVTULKA — зажать 7 сек для админки">
             <span class="logo-icon">💠</span> NVTULKA
         </a>
         <div class="header-actions">
@@ -156,105 +198,247 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Нижняя панель Telegram-стиль -->
+    <!-- Нижняя панель с перетаскиваемой каплей -->
     <nav class="tg-bottom-nav" id="tgBottomNav">
-        <div class="tg-nav-indicator" id="tgIndicator"></div>
+        <div class="tg-nav-track" id="tgNavTrack">
+            <div class="tg-nav-droplet" id="tgDroplet"></div>
 
-        <a href="/chats" class="tg-nav-item" data-page="chats">💬<span>Чаты</span></a>
-        <a href="/" class="tg-nav-item" data-page="feed">🏠<span>Лента</span></a>
-        <a href="/swift" class="tg-nav-item" data-page="swift">🌀<span>Swift</span></a>
-        <a href="/stories" class="tg-nav-item" data-page="stories">✨<span>Сторис</span></a>
-        <a href="/notifications" class="tg-nav-item" data-page="notifications" id="tgNotifBtn">
-            🔔<span>Увед.</span>
-            {% if unread_notifs and unread_notifs > 0 %}
-            <span class="tg-nav-badge">{{ unread_notifs if unread_notifs < 10 else '9+' }}</span>
-            {% endif %}
-        </a>
-        <a href="/profile/{{ user.username if user else '' }}" class="tg-nav-item" data-page="profile">👤<span>Профиль</span></a>
+            <a href="/chats" class="tg-nav-item" data-page="chats" data-url="/chats">💬<span>Чаты</span></a>
+            <a href="/" class="tg-nav-item" data-page="feed" data-url="/">🏠<span>Лента</span></a>
+            <a href="/swift" class="tg-nav-item" data-page="swift" data-url="/swift">🌀<span>Swift</span></a>
+            <a href="/stories" class="tg-nav-item" data-page="stories" data-url="/stories">✨<span>Сторис</span></a>
+            <a href="/notifications" class="tg-nav-item" data-page="notifications" data-url="/notifications">
+                🔔<span>Увед.</span>
+                {% if unread_notifs and unread_notifs > 0 %}
+                <span class="tg-nav-badge">{{ unread_notifs if unread_notifs < 10 else '9+' }}</span>
+                {% endif %}
+            </a>
+            <a href="/profile/{{ user.username if user else '' }}" class="tg-nav-item" data-page="profile" data-url="/profile/{{ user.username if user else '' }}">👤<span>Профиль</span></a>
+        </div>
     </nav>
 
     <script>
-        // ====== АНИМАЦИЯ ИНДИКАТОРА ======
+        // ====== ПЕРЕТАСКИВАЕМАЯ СТЕКЛЯННАЯ КАПЛЯ ======
         (function() {
             const nav = document.getElementById('tgBottomNav');
-            const indicator = document.getElementById('tgIndicator');
-            if (!nav || !indicator) return;
+            const track = document.getElementById('tgNavTrack');
+            const droplet = document.getElementById('tgDroplet');
+            const items = [...track.querySelectorAll('.tg-nav-item')];
 
-            const items = nav.querySelectorAll('.tg-nav-item');
-            const path = window.location.pathname;
+            if (!nav || !track || !droplet || items.length === 0) return;
 
-            // Определяем активную страницу
-            function getActivePage() {
-                if (path.startsWith('/chat')) return 'chats';
-                if (path === '/') return 'feed';
-                if (path === '/swift') return 'swift';
-                if (path.startsWith('/stor')) return 'stories';
-                if (path === '/notifications') return 'notifications';
-                if (path.startsWith('/profile')) return 'profile';
-                if (path === '/recommendations') return 'feed';
-                if (path === '/bookmarks') return 'profile';
-                if (path === '/search') return 'feed';
-                if (path === '/followers') return 'profile';
-                return 'feed';
+            let activeIndex = 1; // Лента по умолчанию
+            let isDragging = false;
+            let startX = 0;
+            let dropletStartX = 0;
+            let animationId = null;
+
+            // Ссылки на страницы
+            const pages = items.map(item => item.dataset.url);
+            const pageNames = items.map(item => item.dataset.page);
+
+            // Определяем активную страницу по URL
+            const currentPath = window.location.pathname;
+            pageNames.forEach((name, i) => {
+                if (name === 'chats' && currentPath.startsWith('/chat')) activeIndex = 0;
+                else if (name === 'feed' && (currentPath === '/' || currentPath === '/recommendations' || currentPath === '/bookmarks' || currentPath === '/search')) activeIndex = 1;
+                else if (name === 'swift' && currentPath === '/swift') activeIndex = 2;
+                else if (name === 'stories' && currentPath.startsWith('/stor')) activeIndex = 3;
+                else if (name === 'notifications' && currentPath === '/notifications') activeIndex = 4;
+                else if (name === 'profile' && (currentPath.startsWith('/profile') || currentPath.startsWith('/followers'))) activeIndex = 5;
+            });
+
+            // Размеры
+            function getItemCenter(index) {
+                const item = items[index];
+                if (!item) return 0;
+                const itemRect = item.getBoundingClientRect();
+                const trackRect = track.getBoundingClientRect();
+                return itemRect.left - trackRect.left + itemRect.width / 2 - droplet.offsetWidth / 2;
             }
 
-            const activePage = getActivePage();
+            // Позиционируем каплю
+            function positionDroplet(index, animate = false) {
+                const targetX = getItemCenter(index);
+                if (animate) {
+                    droplet.style.transition = 'left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                } else {
+                    droplet.style.transition = 'left 0.06s linear';
+                }
+                droplet.style.left = targetX + 'px';
+            }
 
-            // Подсвечиваем активный
-            items.forEach(item => {
-                if (item.dataset.page === activePage) {
-                    item.classList.add('active');
+            // Подсветка активного
+            function setActive(index) {
+                items.forEach((item, i) => {
+                    item.classList.toggle('active', i === index);
+                });
+                activeIndex = index;
+                positionDroplet(index, true);
+            }
+
+            // Инициализация
+            setActive(activeIndex);
+            setTimeout(() => positionDroplet(activeIndex, false), 50);
+
+            // Переход на страницу
+            function navigateTo(index) {
+                if (index >= 0 && index < pages.length) {
+                    window.location.href = pages[index];
+                }
+            }
+
+            // ====== ТАЧ-СОБЫТИЯ (перетаскивание) ======
+            track.addEventListener('touchstart', function(e) {
+                isDragging = true;
+                startX = e.touches[0].clientX;
+                dropletStartX = parseFloat(droplet.style.left) || getItemCenter(activeIndex);
+                droplet.classList.add('dragging');
+                e.preventDefault();
+            }, { passive: false });
+
+            track.addEventListener('touchmove', function(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+
+                const currentX = e.touches[0].clientX;
+                const deltaX = currentX - startX;
+                let newX = dropletStartX + deltaX;
+
+                // Границы
+                const minX = getItemCenter(0);
+                const maxX = getItemCenter(items.length - 1);
+                newX = Math.max(minX - 15, Math.min(maxX + 15, newX));
+
+                droplet.style.left = newX + 'px';
+
+                // Определяем ближайший пункт
+                let closestIndex = activeIndex;
+                let closestDist = Infinity;
+                items.forEach((item, i) => {
+                    const center = getItemCenter(i);
+                    const dist = Math.abs(newX - center);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestIndex = i;
+                    }
+                });
+
+                if (closestIndex !== activeIndex) {
+                    items.forEach((item, i) => {
+                        item.classList.toggle('active', i === closestIndex);
+                    });
+                    activeIndex = closestIndex;
+                }
+            }, { passive: false });
+
+            track.addEventListener('touchend', function(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                droplet.classList.remove('dragging');
+
+                // Привязываем к ближайшему пункту
+                positionDroplet(activeIndex, true);
+
+                // Навигация
+                const finalX = parseFloat(droplet.style.left);
+                let closestIndex = activeIndex;
+                let closestDist = Infinity;
+                items.forEach((item, i) => {
+                    const center = getItemCenter(i);
+                    const dist = Math.abs(finalX - center);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestIndex = i;
+                    }
+                });
+
+                setActive(closestIndex);
+
+                // Переход, если отпустили на новом пункте
+                const startPageIndex = pageNames.indexOf(pageNames.find((name, i) => {
+                    const path = window.location.pathname;
+                    if (name === 'chats') return path.startsWith('/chat');
+                    if (name === 'feed') return path === '/' || path === '/recommendations';
+                    if (name === 'swift') return path === '/swift';
+                    if (name === 'stories') return path.startsWith('/stor');
+                    if (name === 'notifications') return path === '/notifications';
+                    if (name === 'profile') return path.startsWith('/profile');
+                    return false;
+                }));
+
+                if (closestIndex !== startPageIndex) {
+                    navigateTo(closestIndex);
                 }
             });
 
-            // Позиционируем индикатор
-            function updateIndicator() {
-                const activeItem = nav.querySelector('.tg-nav-item.active');
-                if (!activeItem) return;
-                const rect = activeItem.getBoundingClientRect();
-                const navRect = nav.getBoundingClientRect();
-                const left = rect.left - navRect.left + (rect.width / 2) - 10;
-                indicator.style.left = left + 'px';
-            }
+            // ====== МЫШЬ (десктоп) ======
+            track.addEventListener('mousedown', function(e) {
+                if (e.target.closest('a')) return; // Не перехватываем клики по ссылкам
+                isDragging = true;
+                startX = e.clientX;
+                dropletStartX = parseFloat(droplet.style.left) || getItemCenter(activeIndex);
+                droplet.classList.add('dragging');
+                e.preventDefault();
+            });
 
-            updateIndicator();
-            window.addEventListener('resize', updateIndicator);
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                const deltaX = e.clientX - startX;
+                let newX = dropletStartX + deltaX;
+                const minX = getItemCenter(0);
+                const maxX = getItemCenter(items.length - 1);
+                newX = Math.max(minX - 15, Math.min(maxX + 15, newX));
+                droplet.style.left = newX + 'px';
 
-            // При клике — плавно двигаем индикатор
-            items.forEach(item => {
+                let closestIndex = activeIndex;
+                let closestDist = Infinity;
+                items.forEach((item, i) => {
+                    const center = getItemCenter(i);
+                    const dist = Math.abs(newX - center);
+                    if (dist < closestDist) { closestDist = dist; closestIndex = i; }
+                });
+                if (closestIndex !== activeIndex) {
+                    items.forEach((item, i) => item.classList.toggle('active', i === closestIndex));
+                    activeIndex = closestIndex;
+                }
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                droplet.classList.remove('dragging');
+                positionDroplet(activeIndex, true);
+
+                const startPageIndex = pageNames.indexOf(pageNames.find(name => {
+                    const path = window.location.pathname;
+                    if (name === 'chats') return path.startsWith('/chat');
+                    if (name === 'feed') return path === '/';
+                    if (name === 'swift') return path === '/swift';
+                    if (name === 'stories') return path.startsWith('/stor');
+                    if (name === 'notifications') return path === '/notifications';
+                    if (name === 'profile') return path.startsWith('/profile');
+                    return false;
+                }));
+
+                if (activeIndex !== startPageIndex) {
+                    navigateTo(activeIndex);
+                }
+            });
+
+            // Клик по иконке — тоже переход
+            items.forEach((item, i) => {
                 item.addEventListener('click', function(e) {
-                    // Убираем active у всех
-                    items.forEach(i => i.classList.remove('active'));
-                    // Ставим на текущий
-                    this.classList.add('active');
-                    // Двигаем индикатор
-                    const rect = this.getBoundingClientRect();
-                    const navRect = nav.getBoundingClientRect();
-                    const left = rect.left - navRect.left + (rect.width / 2) - 10;
-                    indicator.style.left = left + 'px';
-                    indicator.style.width = '20px';
+                    if (isDragging) {
+                        e.preventDefault();
+                        return;
+                    }
+                    setActive(i);
                 });
             });
 
-            // Анимация при наведении (только десктоп)
-            if (window.matchMedia('(hover: hover)').matches) {
-                items.forEach(item => {
-                    item.addEventListener('mouseenter', function() {
-                        if (!this.classList.contains('active')) {
-                            const rect = this.getBoundingClientRect();
-                            const navRect = nav.getBoundingClientRect();
-                            const left = rect.left - navRect.left + (rect.width / 2) - 14;
-                            indicator.style.left = left + 'px';
-                            indicator.style.width = '28px';
-                            indicator.style.opacity = '0.5';
-                        }
-                    });
-                    item.addEventListener('mouseleave', function() {
-                        indicator.style.opacity = '1';
-                        updateIndicator();
-                    });
-                });
-            }
+            // Обновление позиции при ресайзе
+            window.addEventListener('resize', () => positionDroplet(activeIndex, false));
         })();
     </script>
 
