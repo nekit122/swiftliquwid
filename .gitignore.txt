@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.db
+.DS_Store
+static/avatars/*
+static/posts/*
+static/stories/*
+static/audio/*
+static/voice_comments/*
+static/backgrounds/*
+!static/avatars/.gitkeep
+!static/posts/.gitkeep
+!static/stories/.gitkeep
+!static/audio/.gitkeep
+!static/voice_comments/.gitkeep
+!static/backgrounds/.gitkeep
+.env
