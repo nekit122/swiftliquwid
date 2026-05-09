@@ -13,6 +13,21 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, Da
 from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship
 import bcrypt
 
+# ============ НАСТРОЙКИ БД ============
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nvtulka.db")
+
+# Render даёт postgres://, SQLAlchemy нужен postgresql://
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Для SQLite нужен check_same_thread, для PostgreSQL — нет
+if "sqlite" in DATABASE_URL:
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 # ============ НАСТРОЙКИ ============
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nvtulka.db")
 if DATABASE_URL.startswith("postgres://"):
