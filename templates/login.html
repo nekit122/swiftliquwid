@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>💠 Вход — NVTULKA</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark">
+    <main class="container" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding-bottom:0;">
+        <div style="width:100%;max-width:400px;text-align:center;">
+            <div style="font-size:4rem;margin-bottom:12px;animation:logo-float 3s ease-in-out infinite;">💠</div>
+            <h1 style="font-size:2rem;font-weight:800;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;">NVTULKA</h1>
+            <p style="color:var(--text-tertiary);margin-bottom:28px;">Жидкое стекло + неон</p>
+
+            <form method="POST" action="/login" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="text" name="username" placeholder="Имя пользователя" required autocomplete="username">
+                <input type="password" name="password" placeholder="Пароль" required autocomplete="current-password">
+                <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;">Войти ✨</button>
+            </form>
+
+            <p style="margin-top:20px;color:var(--text-tertiary);">
+                Нет аккаунта? <a href="/register">Создать</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

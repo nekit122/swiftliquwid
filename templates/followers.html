@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-weight:700;font-size:var(--font-lg);margin-bottom:16px;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+    👥 Подписчики {{ profile_user.username }}
+</h2>
+
+{% if followers %}
+    {% for f in followers %}
+    <div class="glass-card" style="margin-bottom:6px;display:flex;align-items:center;gap:12px;padding:12px 14px;">
+        <a href="/profile/{{ f.user.username }}">
+            {% if f.user.avatar %}
+            <img src="{{ f.user.avatar }}" class="avatar" alt="" loading="lazy">
+            {% else %}
+            <span class="avatar">{{ f.user.username[0]|upper }}</span>
+            {% endif %}
+        </a>
+        <div style="flex:1;">
+            <a href="/profile/{{ f.user.username }}" style="font-weight:600;color:var(--text-primary);">{{ f.user.username }}</a>
+            <div style="font-size:var(--font-xs);color:var(--text-tertiary);">
+                {{ '✅ Взаимная подписка' if f.mutual else 'Подписан на вас' }}
+            </div>
+        </div>
+        {% if user and f.user.id != user.id %}
+        <button class="btn btn-sm btn-secondary" onclick="toggleFollow('{{ f.user.username }}', this)">Отписаться</button>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">👥</div>
+    <div class="empty-state-title">Нет подписчиков</div>
+</div>
+{% endif %}
+
+{% endblock %}

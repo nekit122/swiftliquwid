@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-weight:700;font-size:var(--font-lg);margin-bottom:16px;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">💠 Рекомендации</h2>
+
+<div id="recommendationsContainer">
+    {% for post in posts %}
+    <article class="glass-card post-card {% if post.id in viewed_post_ids %}viewed{% endif %}" style="{% if post.id in viewed_post_ids %}opacity:0.6;{% endif %}" data-post-id="{{ post.id }}">
+        {% if post.id not in viewed_post_ids %}
+        <div style="position:absolute;top:8px;right:8px;width:8px;height:8px;background:var(--accent-primary);border-radius:50%;box-shadow:0 0 8px var(--accent-primary-glow);z-index:1;" title="Новый пост"></div>
+        {% endif %}
+        <div class="post-header">
+            <a href="/profile/{{ post.user.username }}">
+                {% if post.user.avatar %}
+                <img src="{{ post.user.avatar }}" class="avatar avatar-sm" alt="" loading="lazy">
+                {% else %}
+                <span class="avatar avatar-sm">{{ post.user.username[0]|upper }}</span>
+                {% endif %}
+            </a>
+            <div style="flex:1;">
+                <a href="/profile/{{ post.user.username }}" class="post-username">{{ post.user.username }}</a>
+                <div class="post-date">{{ post.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+            </div>
+        </div>
+        {% if post.content %}<div class="post-content">{{ post.content }}</div>{% endif %}
+        {% if post.files %}
+        <div class="post-files">
+            {% for file in post.files %}
+                {% if file.file_type == 'image' %}
+                <img src="{{ file.file_path }}" alt="" loading="lazy" class="lazy-img" onload="this.classList.add('loaded')">
+                {% elif file.file_type == 'video' %}
+                <video controls preload="metadata" style="width:100%;border-radius:var(--radius-md);">
+                    <source src="{{ file.file_path }}">
+                </video>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        <a href="/post/{{ post.id }}" class="btn btn-sm btn-secondary">Открыть пост</a>
+    </article>
+    {% endfor %}
+
+    {% if posts|length == 0 %}
+    <div class="empty-state">
+        <div class="empty-state-icon">💠</div>
+        <div class="empty-state-title">Нет рекомендаций</div>
+        <div class="empty-state-text">Пока нет постов для рекомендаций. Создайте свой первый пост!</div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

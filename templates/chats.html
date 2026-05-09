@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <h2 style="font-weight:700;font-size:var(--font-lg);background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">💬 Чаты</h2>
+    <a href="/create_group" class="btn btn-sm btn-primary">+ Группа</a>
+</div>
+
+{% if chats %}
+    {% for entry in chats %}
+    <a href="/chat/{{ entry.chat.id }}" style="text-decoration:none;">
+        <div class="chat-list-item glass-card" style="margin-bottom:4px;border-radius:var(--radius-md);">
+            {% if entry.chat.is_group %}
+            <span class="avatar" style="background:var(--gradient-neon);">👥</span>
+            {% else %}
+                {% set other_member = entry.chat.members|selectattr('user_id', '!=', user.id)|list|first %}
+                {% if other_member %}
+                    {% set ou = other_member.user_id | get_user_by_id %}
+                    {% if ou and ou.avatar %}
+                    <img src="{{ ou.avatar }}" class="avatar" alt="">
+                    {% else %}
+                    <span class="avatar">{{ ou.username[0]|upper if ou else '?' }}</span>
+                    {% endif %}
+                {% else %}
+                <span class="avatar">?</span>
+                {% endif %}
+            {% endif %}
+            <div class="chat-list-info">
+                <div class="chat-list-name">
+                    {% if entry.chat.is_group %}
+                        {{ entry.chat.name or 'Группа' }}
+                    {% else %}
+                        {% set other_member = entry.chat.members|selectattr('user_id', '!=', user.id)|list|first %}
+                        {% if other_member %}
+                            {% set ou = other_member.user_id | get_user_by_id %}
+                            {{ ou.username if ou else 'Пользователь' }}
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="chat-list-last-msg">
+                    {% if entry.last_message %}
+                        {{ entry.last_message.content[:40] if entry.last_message.content else ('🎤 Голосовое' if entry.last_message.is_voice else '📎 Файл') }}
+                    {% else %}
+                        Нет сообщений
+                    {% endif %}
+                </div>
+            </div>
+            <div class="chat-list-date">
+                {% if entry.last_message %}
+                {{ entry.last_message.created_at.strftime('%H:%M') }}
+                {% endif %}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">💬</div>
+    <div class="empty-state-title">Нет чатов</div>
+    <div class="empty-state-text">Подпишитесь на пользователей взаимно, чтобы начать личный чат, или создайте группу!</div>
+</div>
+{% endif %}
+
+{% endblock %}

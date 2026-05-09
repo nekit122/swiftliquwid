@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>💠 NVTULKA — Жидкое стекло + неон</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💠</text></svg>">
+</head>
+<body class="{{ user.theme if user else 'dark' }} {% if is_new_year %}new-year{% endif %}">
+
+    {% if is_new_year %}
+    <div class="snow-container" id="snowContainer"></div>
+    {% endif %}
+
+    <header class="header">
+        <a href="/" class="header-logo" id="adminLogo" title="NVTULKA">
+            <span class="logo-icon">💠</span> NVTULKA
+        </a>
+        <div class="header-actions">
+            <a href="/search" title="Поиск">🔍</a>
+            <a href="/notifications" title="Уведомления" style="position:relative;">
+                🔔
+                {% if unread_notifs and unread_notifs > 0 %}
+                <span class="notif-badge">{{ unread_notifs if unread_notifs < 10 else '9+' }}</span>
+                {% endif %}
+            </a>
+            {% if user %}
+            <a href="/profile/{{ user.username }}" title="Профиль">
+                {% if user.avatar %}
+                <img src="{{ user.avatar }}" class="avatar avatar-sm" alt="{{ user.username }}">
+                {% else %}
+                <span class="avatar avatar-sm">{{ user.username[0]|upper }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="container" style="margin-top:8px;margin-bottom:8px;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <nav class="bottom-nav">
+    <a href="/chats" class="nav-item {% if request.url.path.startswith('/chat') %}active{% endif %}">💬 <span>Чаты</span></a>
+    <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">🏠 <span>Лента</span></a>
+    <a href="/recommendations" class="nav-item {% if request.url.path == '/recommendations' %}active{% endif %}">💠 <span>Рек.</span></a>
+    <a href="/stories" class="nav-item {% if request.url.path.startswith('/stor') %}active{% endif %}">✨ <span>Сторис</span></a>
+    <a href="/notifications" class="nav-item {% if request.url.path == '/notifications' %}active{% endif %}">🔔 <span>Увед.</span></a>
+    <a href="/profile/{{ user.username if user else '' }}" class="nav-item {% if request.url.path.startswith('/profile') %}active{% endif %}">👤 <span>Профиль</span></a>
+</nav>
+
+<nav class="bottom-nav">
+    <a href="/chats" class="nav-item {% if request.url.path.startswith('/chat') %}active{% endif %}">💬 <span>Чаты</span></a>
+    <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">🏠 <span>Лента</span></a>
+    <a href="/swift" class="nav-item {% if request.url.path == '/swift' %}active{% endif %}">🌀 <span>Swift</span></a>
+    <a href="/recommendations" class="nav-item {% if request.url.path == '/recommendations' %}active{% endif %}">💠 <span>Рек.</span></a>
+    <a href="/stories" class="nav-item {% if request.url.path.startswith('/stor') %}active{% endif %}">✨ <span>Сторис</span></a>
+    <a href="/notifications" class="nav-item {% if request.url.path == '/notifications' %}active{% endif %}">🔔 <span>Увед.</span></a>
+    <a href="/profile/{{ user.username if user else '' }}" class="nav-item {% if request.url.path.startswith('/profile') %}active{% endif %}">👤 <span>Профиль</span></a>
+</nav>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

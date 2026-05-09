@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* Шестерёнка настроек */
+.settings-gear {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.6rem;
+    cursor: pointer;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+.settings-gear.spinning {
+    animation: gear-spin 2s linear infinite;
+}
+@keyframes gear-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Панель настроек */
+.settings-panel {
+    position: fixed;
+    left: -300px;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    background: var(--bg-card);
+    backdrop-filter: blur(30px);
+    border-right: 1px solid var(--border-medium);
+    z-index: 499;
+    padding: 70px 16px 20px;
+    transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 8px 0 40px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+.settings-panel.open {
+    left: 0;
+}
+.settings-panel h3 {
+    font-weight: 700;
+    font-size: 1.1rem;
+    background: var(--gradient-neon);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+}
+.settings-panel label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+.settings-panel select,
+.settings-panel input[type="file"] {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-medium);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+}
+.settings-panel .btn {
+    width: 100%;
+    margin-top: 4px;
+}
+.settings-panel .divider {
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+    margin: 8px 0;
+}
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 498;
+    display: none;
+}
+.settings-overlay.show {
+    display: block;
+}
+</style>
+
+<!-- Кнопка настроек (шестерёнка) -->
+<div class="settings-gear" id="settingsGear" title="Настройки">⚙️</div>
+
+<!-- Оверлей -->
+<div class="settings-overlay" id="settingsOverlay" onclick="toggleSettings()"></div>
+
+<!-- Панель настроек -->
+<div class="settings-panel" id="settingsPanel">
+    <h3>⚙️ Настройки</h3>
+
+    <form method="POST" action="/profile/edit" enctype="multipart/form-data">
+        <label>О себе</label>
+        <textarea name="bio" placeholder="Напишите что-нибудь..." style="width:100%;min-height:60px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:12px;padding:8px 10px;color:var(--text-primary);font-size:0.85rem;resize:vertical;">{{ profile_user.bio or '' }}</textarea>
+
+        <label>Тема</label>
+        <select name="theme">
+            <option value="dark" {% if user and user.theme == 'dark' %}selected{% endif %}>🌙 Тёмная (неон)</option>
+            <option value="blue" {% if user and user.theme == 'blue' %}selected{% endif %}>🔵 Синяя</option>
+            <option value="purple" {% if user and user.theme == 'purple' %}selected{% endif %}>🟣 Фиолетовая</option>
+            <option value="oled" {% if user and user.theme == 'oled' %}selected{% endif %}>⬛ OLED</option>
+        </select>
+
+        <label>Аватар</label>
+        <input type="file" name="avatar" accept="image/*">
+
+        <label>Фон профиля</label>
+        <input type="file" name="bg_image" accept="image/*">
+
+        <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+    </form>
+
+    <hr class="divider">
+
+    <a href="/bookmarks" class="btn btn-secondary" style="text-decoration:none;text-align:center;">🔖 Закладки</a>
+    <a href="/recommendations" class="btn btn-secondary" style="text-decoration:none;text-align:center;">💠 Рекомендации</a>
+
+    <hr class="divider">
+
+    <a href="/logout" class="btn btn-danger" style="text-decoration:none;text-align:center;">🚪 Выйти из аккаунта</a>
+</div>
+
+<!-- Профиль -->
+<div class="glass-card" style="text-align:center;margin-bottom:14px;padding:24px 16px;">
+    <div style="position:relative;display:inline-block;">
+        {% if stories and stories|length > 0 %}
+        <div class="stories-ring" style="width:80px;height:80px;">
+            {% if profile_user.avatar %}
+            <img src="{{ profile_user.avatar }}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid var(--bg-primary);">
+            {% else %}
+            <span class="avatar avatar-lg" style="width:100%;height:100%;">{{ profile_user.username[0]|upper }}</span>
+            {% endif %}
+        </div>
+        {% else %}
+            {% if profile_user.avatar %}
+            <img src="{{ profile_user.avatar }}" class="avatar avatar-lg" alt="">
+            {% else %}
+            <span class="avatar avatar-lg">{{ profile_user.username[0]|upper }}</span>
+            {% endif %}
+        {% endif %}
+        {% if profile_user.is_online %}
+        <span class="online-dot" style="bottom:4px;right:4px;"></span>
+        {% else %}
+        <span class="offline-dot" style="bottom:4px;right:4px;"></span>
+        {% endif %}
+    </div>
+
+    <h2 style="margin-top:12px;font-weight:700;font-size:1.3rem;">{{ profile_user.username }}</h2>
+    {% if profile_user.bio %}
+    <p style="color:var(--text-secondary);margin-top:4px;font-size:0.85rem;">{{ profile_user.bio }}</p>
+    {% endif %}
+
+    <div style="font-size:0.75rem;color:var(--text-tertiary);margin-top:6px;">
+        {% if profile_user.is_online %}
+        <span style="color:var(--success);">🟢 Онлайн</span>
+        {% else %}
+        <span>Был(а): {{ profile_user.last_seen.strftime('%d.%m.%Y %H:%M') if profile_user.last_seen else 'давно' }}</span>
+        {% endif %}
+    </div>
+
+    <div style="display:flex;justify-content:center;gap:24px;margin-top:14px;">
+        <div><strong>{{ posts|length }}</strong><br><span style="font-size:0.75rem;color:var(--text-tertiary);">Постов</span></div>
+        <a href="/followers/{{ profile_user.username }}" style="color:inherit;text-decoration:none;"><strong>{{ followers_count }}</strong><br><span style="font-size:0.75rem;color:var(--text-tertiary);">Подписчиков</span></a>
+        <div><strong>{{ following_count }}</strong><br><span style="font-size:0.75rem;color:var(--text-tertiary);">Подписок</span></div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;">
+        {% if user and user.id != profile_user.id %}
+            <button class="btn btn-sm {% if is_following %}btn-secondary{% else %}btn-primary{% endif %}" onclick="toggleFollow('{{ profile_user.username }}', this)">
+                {{ 'Отписаться' if is_following else 'Подписаться' }}
+            </button>
+            {% set is_mutual = user and profile_user and user.id != profile_user.id %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Вкладки -->
+<div class="profile-tabs">
+    <span class="profile-tab active" onclick="switchTab('posts')">📝 Посты</span>
+    {% if user and user.id == profile_user.id %}
+    <span class="profile-tab" onclick="switchTab('stats')">📊 Статистика</span>
+    {% endif %}
+</div>
+
+<!-- Посты -->
+<div id="tab-posts" class="tab-content">
+    {% for post in posts %}
+    <article class="glass-card post-card" data-post-id="{{ post.id }}">
+        <div class="post-header">
+            <a href="/profile/{{ post.user.username }}">
+                {% if post.user.avatar %}
+                <img src="{{ post.user.avatar }}" class="avatar avatar-sm" alt="" loading="lazy">
+                {% else %}
+                <span class="avatar avatar-sm">{{ post.user.username[0]|upper }}</span>
+                {% endif %}
+            </a>
+            <div style="flex:1;">
+                <span class="post-username">{{ post.user.username }}</span>
+                <div class="post-date">{{ post.created_at.strftime('%d.%m.%Y %H:%M') }}{% if post.edited_at %} (изм.){% endif %}</div>
+            </div>
+            <a href="/post/{{ post.id }}" style="color:var(--text-tertiary);">🔗</a>
+        </div>
+        {% if post.content %}<div class="post-content">{{ post.content }}</div>{% endif %}
+        {% if post.files %}
+        <div class="post-files">
+            {% for file in post.files %}
+                {% if file.file_type == 'image' %}
+                <img src="{{ file.file_path }}" alt="" loading="lazy" class="lazy-img" onload="this.classList.add('loaded')">
+                {% elif file.file_type == 'video' %}
+                <video controls preload="metadata" style="width:100%;border-radius:12px;max-height:400px;"><source src="{{ file.file_path }}"></video>
+                {% else %}
+                <a href="{{ file.file_path }}" class="post-file-doc" download>📄 {{ file.file_path.split('/')[-1] }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="post-actions">
+            <span class="reaction-btn">❤️ {{ post.reactions|length }}</span>
+            <span class="reaction-btn">💬 {{ post.comments|length }}</span>
+        </div>
+    </article>
+    {% endfor %}
+    {% if posts|length == 0 %}
+    <div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-title">Нет постов</div></div>
+    {% endif %}
+</div>
+
+<!-- Статистика -->
+{% if user and user.id == profile_user.id %}
+<div id="tab-stats" class="tab-content" style="display:none;">
+    <div class="glass-card" style="margin-bottom:14px;">
+        <h3 style="font-weight:600;margin-bottom:10px;">Активность за 7 дней</h3>
+        <div class="activity-chart">
+            {% for count in activity_counts %}
+            {% set max_count = activity_counts|max or 10 %}
+            <div class="activity-bar" style="height:{{ (count / max_count * 100)|int if max_count > 0 else 4 }}px;">
+                {% if count > 0 %}<span class="activity-bar-value">{{ count }}</span>{% endif %}
+                <span class="activity-bar-label">{{ activity_dates[loop.index0] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function toggleSettings() {
+    const panel = document.getElementById('settingsPanel');
+    const gear = document.getElementById('settingsGear');
+    const overlay = document.getElementById('settingsOverlay');
+    if (!panel || !gear || !overlay) return;
+    const isOpen = panel.classList.contains('open');
+    if (isOpen) {
+        panel.classList.remove('open');
+        gear.classList.remove('spinning');
+        overlay.classList.remove('show');
+    } else {
+        panel.classList.add('open');
+        gear.classList.add('spinning');
+        overlay.classList.add('show');
+    }
+}
+</script>
+
+{% endblock %}

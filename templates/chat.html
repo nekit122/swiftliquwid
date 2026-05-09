@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Информация о чате -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <a href="/chats" style="color:var(--text-secondary);font-size:1.2rem;">←</a>
+    <div style="flex:1;">
+        <div style="font-weight:700;font-size:var(--font-lg);">
+            {% if chat.is_group %}{{ chat.name or 'Группа' }}{% else %}
+                {% set other = members|selectattr('user.id', '!=', user.id)|list|first %}
+                {{ other.user.username if other else 'Чат' }}
+            {% endif %}
+        </div>
+        <div style="font-size:var(--font-xs);color:var(--text-tertiary);">
+            {{ members|length }} участников
+        </div>
+    </div>
+    {% if chat.is_group and current_member.role in ['creator', 'admin'] %}
+    <button class="btn btn-sm btn-secondary" onclick="document.getElementById('manageGroupModal').style.display='flex'">⚙️</button>
+    {% endif %}
+</div>
+
+<!-- Сообщения -->
+<div class="glass-card" style="padding:0;overflow:hidden;margin-bottom:0;">
+    <div class="chat-messages" id="chatMessages">
+        {% for msg in messages %}
+        <div class="chat-message {% if msg.user_id == user.id %}mine{% else %}other{% endif %}" data-msg-id="{{ msg.id }}">
+            {% if chat.is_group and msg.user_id != user.id %}
+            <div class="chat-message-sender">{{ msg.user.username }}</div>
+            {% endif %}
+            {% if msg.is_voice %}
+            <div class="voice-message" onclick="toggleVoice(this)" data-src="{{ msg.voice_path }}">
+                <span>🔊</span>
+                <div class="voice-wave">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <span style="font-size:10px;">{{ msg.content or '' }}</span>
+            </div>
+            {% elif msg.file_path %}
+            <a href="{{ msg.file_path }}" style="color:var(--accent-secondary);word-break:break-all;">📎 {{ msg.file_path.split('/')[-1] }}</a>
+            {% elif msg.content %}
+            {{ msg.content }}
+            {% endif %}
+            <div class="chat-message-time">{{ msg.created_at.strftime('%H:%M') }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Индикатор печатает -->
+{% if typing_users %}
+<div class="typing-indicator" id="typingIndicator">
+    {% if typing_users|length == 1 %}
+    {{ typing_users[0] }} печатает...
+    {% elif typing_users|length == 2 %}
+    {{ typing_users[0] }} и {{ typing_users[1] }} печатают...
+    {% else %}
+    {{ typing_users|length }} человека печатают...
+    {% endif %}
+</div>
+{% else %}
+<div class="typing-indicator" id="typingIndicator" style="opacity:0;"></div>
+{% endif %}
+
+<!-- Поле ввода -->
+<div class="chat-input-area" id="chatInputArea">
+    <button class="btn-icon" onclick="document.getElementById('chatFileInput').click()" title="Прикрепить файл" style="font-size:1.2rem;">📎</button>
+    <textarea class="chat-input" id="chatInput" placeholder="Сообщение..." rows="1" oninput="autoResize(this); onTyping();" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+    <button class="chat-voice-btn" id="voiceRecordBtn" onclick="toggleVoiceRecord()" title="Голосовое">🎤</button>
+    <button class="btn btn-sm btn-primary" onclick="sendMessage()" style="padding:8px 16px;">→</button>
+
+    <form id="chatForm" method="POST" action="/chat/{{ chat.id }}/message" enctype="multipart/form-data" style="display:none;">
+        <input type="hidden" name="content" id="chatContentInput">
+        <input type="file" name="file" id="chatFileInput" onchange="submitFileMessage()">
+        <input type="file" name="voice" id="chatVoiceInput" accept="audio/*" capture>
+    </form>
+</div>
+
+<!-- Модалка управления группой -->
+{% if chat.is_group and current_member.role in ['creator', 'admin'] %}
+<div class="modal-overlay" id="manageGroupModal" style="display:none;">
+    <div class="modal-content">
+        <button class="close-btn" onclick="document.getElementById('manageGroupModal').style.display='none'">✕</button>
+        <div class="modal-title">Управление группой</div>
+        <h4 style="margin-bottom:8px;">Участники:</h4>
+        {% for member in members %}
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+            {% if member.user.avatar %}
+            <img src="{{ member.user.avatar }}" class="avatar avatar-sm" alt="">
+            {% else %}
+            <span class="avatar avatar-sm">{{ member.user.username[0]|upper }}</span>
+            {% endif %}
+            <span style="flex:1;font-size:var(--font-sm);">{{ member.user.username }}</span>
+            <span style="font-size:10px;color:var(--text-tertiary);padding:2px 8px;background:var(--bg-input);border-radius:var(--radius-full);">{{ member.role }}</span>
+            {% if member.user_id != user.id and member.role != 'creator' %}
+            <form method="POST" action="/group/{{ chat.id }}/manage" style="display:inline;">
+                <input type="hidden" name="user_id" value="{{ member.user_id }}">
+                <input type="hidden" name="action" value="kick">
+                <button type="submit" class="btn btn-sm btn-danger" style="font-size:10px;">Кик</button>
+            </form>
+            <form method="POST" action="/group/{{ chat.id }}/manage" style="display:inline;">
+                <input type="hidden" name="user_id" value="{{ member.user_id }}">
+                <input type="hidden" name="action" value="{{ 'demote' if member.role == 'admin' else 'promote' }}">
+                <button type="submit" class="btn btn-sm btn-secondary" style="font-size:10px;">
+                    {{ '↓' if member.role == 'admin' else '↑' }}
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Скролл чата вниз
+function scrollChatToBottom() {
+    const container = document.getElementById('chatMessages');
+    if (container) container.scrollTop = container.scrollHeight;
+}
+scrollChatToBottom();
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const content = input.value.trim();
+    if (!content) return;
+    document.getElementById('chatContentInput').value = content;
+    document.getElementById('chatForm').submit();
+}
+
+function submitFileMessage() {
+    document.getElementById('chatContentInput').value = '';
+    document.getElementById('chatForm').submit();
+}
+
+// Статус "печатает"
+let typingTimeout;
+function onTyping() {
+    clearTimeout(typingTimeout);
+    fetch('/chat/{{ chat.id }}/typing', { method: 'POST' });
+    typingTimeout = setTimeout(() => {
+        // Автоматически сбросится на сервере через 5 сек
+    }, 2000);
+}
+
+// Голосовое сообщение (упрощённо — через загрузку файла)
+function toggleVoiceRecord() {
+    document.getElementById('chatVoiceInput').click();
+}
+document.getElementById('chatVoiceInput')?.addEventListener('change', function() {
+    document.getElementById('chatForm').submit();
+});
+
+// Обновление чата
+setInterval(() => {
+    fetch('/chat/{{ chat.id }}/typing_users')
+        .then(r => r.json())
+        .then(users => {
+            const indicator = document.getElementById('typingIndicator');
+            if (users.length > 0) {
+                indicator.style.opacity = '1';
+                indicator.textContent = users.join(', ') + (users.length === 1 ? ' печатает...' : ' печатают...');
+            } else {
+                indicator.style.opacity = '0';
+            }
+        });
+}, 2000);
+</script>
+
+{% endblock %}

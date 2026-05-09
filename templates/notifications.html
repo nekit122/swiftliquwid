@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <h2 style="font-weight:700;font-size:1.1rem;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🔔 Уведомления</h2>
+    {% if unread_notifs > 0 %}
+    <button class="btn btn-sm btn-primary" onclick="markAllRead()">Прочитать все</button>
+    {% endif %}
+</div>
+
+{% if notifications %}
+    {% for notif in notifications %}
+    <div class="glass-card" style="margin-bottom:6px;{% if not notif.is_read %}border-left:3px solid var(--accent-primary);{% endif %}padding:12px 14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            {% if notif.type == 'admin_mass' %}
+            <span class="avatar avatar-sm" style="background:var(--gradient-neon);">📢</span>
+            {% else %}
+            <span class="avatar avatar-sm">👤</span>
+            {% endif %}
+            <div style="flex:1;">
+                {% if notif.type == 'like' %}
+                    <span style="font-weight:600;">Пользователь</span> поставил(а) реакцию на ваш пост
+                {% elif notif.type == 'comment' %}
+                    <span style="font-weight:600;">Пользователь</span> прокомментировал(а) ваш пост
+                {% elif notif.type == 'follow' %}
+                    <span style="font-weight:600;">Новый подписчик</span> подписался(ась) на вас
+                {% elif notif.type == 'admin_mass' %}
+                    📢 {{ notif.message }}
+                {% else %}
+                    Новое уведомление
+                {% endif %}
+            </div>
+            <div style="font-size:0.7rem;color:var(--text-tertiary);">{{ notif.created_at.strftime('%d.%m %H:%M') }}</div>
+        </div>
+        {% if notif.post_id %}
+        <a href="/post/{{ notif.post_id }}" style="font-size:0.75rem;color:var(--accent-secondary);margin-left:44px;">Перейти к посту →</a>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">🔔</div>
+    <div class="empty-state-title">Нет уведомлений</div>
+    <div class="empty-state-text">Здесь будут появляться уведомления о лайках, комментариях и новых подписчиках.</div>
+</div>
+{% endif %}
+
+<script>
+function markAllRead() {
+    fetch('/notifications/read', { method: 'POST' }).then(() => location.reload());
+}
+</script>
+
+{% endblock %}

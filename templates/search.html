@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-weight:700;font-size:var(--font-lg);margin-bottom:16px;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🔍 Поиск</h2>
+
+<form method="GET" action="/search" style="margin-bottom:16px;">
+    <input type="text" name="q" placeholder="Поиск по пользователям, постам, хештегам..." value="{{ query }}" style="background:var(--bg-input);border:1px solid var(--border-medium);border-radius:var(--radius-xl);padding:12px 16px;font-size:var(--font-base);">
+</form>
+
+{% if query %}
+    {% if results %}
+        {% for result in results %}
+            {% if result.type == 'user' %}
+            <div class="glass-card" style="margin-bottom:6px;display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                <a href="/profile/{{ result.user.username }}">
+                    {% if result.user.avatar %}
+                    <img src="{{ result.user.avatar }}" class="avatar" alt="" loading="lazy">
+                    {% else %}
+                    <span class="avatar">{{ result.user.username[0]|upper }}</span>
+                    {% endif %}
+                </a>
+                <div style="flex:1;">
+                    <a href="/profile/{{ result.user.username }}" style="font-weight:600;color:var(--text-primary);">{{ result.user.username }}</a>
+                    {% if result.user.bio %}
+                    <div style="font-size:var(--font-xs);color:var(--text-tertiary);">{{ result.user.bio[:50] }}</div>
+                    {% endif %}
+                </div>
+                {% if user and result.user.id != user.id %}
+                <button class="btn btn-sm {% if result.is_following %}btn-secondary{% else %}btn-primary{% endif %}" onclick="toggleFollow('{{ result.user.username }}', this)">
+                    {{ 'Отписаться' if result.is_following else 'Подписаться' }}
+                </button>
+                {% endif %}
+            </div>
+            {% elif result.type == 'post' %}
+            <article class="glass-card post-card">
+                <div class="post-header">
+                    <a href="/profile/{{ result.post.user.username }}">
+                        {% if result.post.user.avatar %}
+                        <img src="{{ result.post.user.avatar }}" class="avatar avatar-sm" alt="">
+                        {% else %}
+                        <span class="avatar avatar-sm">{{ result.post.user.username[0]|upper }}</span>
+                        {% endif %}
+                    </a>
+                    <span class="post-username">{{ result.post.user.username }}</span>
+                </div>
+                {% if result.post.content %}
+                <div class="post-content">{{ result.post.content[:200] }}</div>
+                {% endif %}
+                <a href="/post/{{ result.post.id }}" class="btn btn-sm btn-secondary">Открыть</a>
+            </article>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-title">Ничего не найдено</div>
+        <div class="empty-state-text">По запросу "{{ query }}" ничего не найдено. Попробуйте изменить запрос.</div>
+    </div>
+    {% endif %}
+{% endif %}
+
+{% endblock %}

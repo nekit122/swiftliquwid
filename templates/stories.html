@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <h2 style="font-weight:700;font-size:var(--font-lg);background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">✨ Сторис</h2>
+    <form method="POST" action="/story/create" enctype="multipart/form-data" style="display:flex;gap:8px;" id="storyForm">
+        <label class="btn btn-sm btn-primary" style="cursor:pointer;">
+            + Добавить
+            <input type="file" name="file" accept="image/*,video/*" required style="display:none;" onchange="document.getElementById('storyTextOverlay').style.display='block';">
+        </label>
+        <div id="storyTextOverlay" style="display:none;display:flex;gap:6px;align-items:center;">
+            <input type="text" name="text_overlay" placeholder="Текст на сторис" style="width:120px;padding:5px 10px;font-size:var(--font-xs);">
+            <button type="submit" class="btn btn-sm btn-secondary">Ок</button>
+        </div>
+    </form>
+</div>
+
+<div style="display:flex;gap:16px;overflow-x:auto;padding:8px 0;scrollbar-width:none;">
+    <!-- Свои сторис -->
+    {% if user %}
+    <div style="text-align:center;flex-shrink:0;">
+        <label style="cursor:pointer;">
+            <div class="stories-ring add-story">
+                <span>+</span>
+            </div>
+            <input type="file" form="storyForm" name="file" accept="image/*,video/*" style="display:none;" onchange="document.getElementById('storyForm').submit();">
+        </label>
+        <div style="font-size:var(--font-xs);margin-top:6px;">Мои</div>
+    </div>
+    {% endif %}
+
+    {% for entry in users_with_stories %}
+    <div style="text-align:center;flex-shrink:0;">
+        <a href="/story/{{ entry.stories[0].id }}/view">
+            <div class="stories-ring" style="width:72px;height:72px;">
+                {% if entry.user.avatar %}
+                <img src="{{ entry.user.avatar }}" alt="{{ entry.user.username }}">
+                {% else %}
+                <span class="avatar" style="width:100%;height:100%;border-radius:50%;">{{ entry.user.username[0]|upper }}</span>
+                {% endif %}
+            </div>
+        </a>
+        <div style="font-size:var(--font-xs);margin-top:6px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ entry.user.username }}</div>
+        <div style="font-size:9px;color:var(--text-tertiary);">{{ entry.stories|length }} шт.</div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if users_with_stories|length == 0 %}
+<div class="empty-state">
+    <div class="empty-state-icon">✨</div>
+    <div class="empty-state-title">Нет активных сторис</div>
+    <div class="empty-state-text">Добавьте свою первую сторис или подождите, пока друзья поделятся моментами!</div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="font-weight:700;font-size:var(--font-lg);margin-bottom:16px;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">👥 Создать группу</h2>
+
+<div class="glass-card">
+    <form method="POST" action="/group/create">
+        <input type="text" name="name" placeholder="Название группы" required style="margin-bottom:12px;">
+        <p style="font-size:var(--font-sm);color:var(--text-secondary);margin-bottom:8px;">Выберите участников:</p>
+        <div style="max-height:250px;overflow-y:auto;margin-bottom:12px;">
+            {% for u in mutual_users %}
+            <label style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border-subtle);">
+                <input type="checkbox" name="members" value="{{ u.id }}" style="width:auto;">
+                {% if u.avatar %}
+                <img src="{{ u.avatar }}" class="avatar avatar-sm" alt="">
+                {% else %}
+                <span class="avatar avatar-sm">{{ u.username[0]|upper }}</span>
+                {% endif %}
+                <span style="font-size:var(--font-sm);">{{ u.username }}</span>
+            </label>
+            {% endfor %}
+
+            {% if mutual_users|length == 0 %}
+            <p style="color:var(--text-tertiary);text-align:center;padding:20px;">Нет пользователей с взаимной подпиской.</p>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Создать группу 🚀</button>
+    </form>
+</div>
+
+{% endblock %}

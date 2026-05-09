@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💠 Сторис — NVTULKA</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark" style="padding:0;">
+    <div class="story-viewer" id="storyViewer">
+        <!-- Прогресс-бар -->
+        <div class="story-progress">
+            <div class="story-progress-bar" id="storyProgress" style="width:0%;"></div>
+        </div>
+
+        <!-- Кнопка закрытия -->
+        <a href="/stories" class="close-btn" style="top:20px;right:20px;z-index:10;">✕</a>
+
+        <!-- Автор -->
+        <div style="position:absolute;top:20px;left:20px;display:flex;align-items:center;gap:10px;z-index:10;">
+            {% if story_user.avatar %}
+            <img src="{{ story_user.avatar }}" class="avatar avatar-sm" alt="{{ story_user.username }}">
+            {% else %}
+            <span class="avatar avatar-sm">{{ story_user.username[0]|upper }}</span>
+            {% endif %}
+            <span style="font-weight:600;font-size:var(--font-sm);">{{ story_user.username }}</span>
+            <span style="font-size:var(--font-xs);color:var(--text-tertiary);">{{ story.created_at.strftime('%H:%M') }}</span>
+        </div>
+
+        <!-- Контент сторис -->
+        {% if story.file_path.endswith('.mp4') or story.file_path.endswith('.webm') or story.file_path.endswith('.mov') %}
+        <video src="{{ story.file_path }}" autoplay loop muted playsinline style="max-width:95vw;max-height:80vh;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg),var(--shadow-glow-lg);" id="storyMedia"></video>
+        {% else %}
+        <img src="{{ story.file_path }}" alt="Сторис" style="max-width:95vw;max-height:80vh;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg),var(--shadow-glow-lg);" id="storyMedia">
+        {% endif %}
+
+        <!-- Текст поверх -->
+        {% if story.text_overlay %}
+        <div class="story-text-overlay"
+             style="left:{{ story.text_position.get('x', 50) }}%;top:{{ story.text_position.get('y', 50) }}%;transform:translate(-50%,-50%) scale({{ story.text_position.get('scale', 1) }});">
+            {{ story.text_overlay }}
+        </div>
+        {% endif %}
+
+        <!-- Навигация -->
+        <div style="display:flex;gap:12px;margin-top:16px;">
+            {% for s in all_stories %}
+            <a href="/story/{{ s.id }}/view" style="width:48px;height:48px;border-radius:50%;padding:2px;background:{% if s.id == story.id %}var(--accent-primary){% else %}var(--border-medium){% endif %};">
+                {% if s.file_path.endswith('.mp4') %}
+                <span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--bg-primary);font-size:0.6rem;">▶</span>
+                {% else %}
+                <img src="{{ s.file_path }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        let progress = 0;
+        const progressBar = document.getElementById('storyProgress');
+        const duration = {{ all_stories|length * 5 }}; // 5 секунд на сторис
+        const interval = setInterval(() => {
+            progress += 100 / (duration * 10);
+            progressBar.style.width = Math.min(progress, 100) + '%';
+            if (progress >= 100) {
+                clearInterval(interval);
+                {% if all_stories|length > 1 %}
+                const nextId = {{ all_stories[1].id if all_stories|length > 1 else all_stories[0].id }};
+                window.location.href = '/story/' + nextId + '/view';
+                {% else %}
+                window.location.href = '/stories';
+                {% endif %}
+            }
+        }, 100);
+    </script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>🌀 Swift — NVTULKA</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Сброс для Swift */
+        body.swift-mode {
+            padding: 0;
+            margin: 0;
+            background: #000;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        body.swift-mode .header,
+        body.swift-mode .bottom-nav,
+        body.swift-mode .container {
+            display: none;
+        }
+
+        .swift-container {
+            width: 100vw;
+            height: 100vh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            position: relative;
+        }
+        .swift-container::-webkit-scrollbar { display: none; }
+
+        .swift-video-card {
+            width: 100%;
+            height: 100vh;
+            scroll-snap-align: start;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .swift-video-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+            cursor: pointer;
+        }
+
+        .swift-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 90px 16px 30px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .swift-author {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: white;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+            margin-bottom: 4px;
+        }
+        .swift-author a {
+            color: white;
+            text-decoration: none;
+            pointer-events: all;
+        }
+        .swift-text {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.9);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            line-height: 1.4;
+            pointer-events: all;
+        }
+
+        .swift-sidebar {
+            position: absolute;
+            right: 12px;
+            bottom: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            z-index: 3;
+        }
+
+        .swift-side-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            color: white;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+            transition: transform 0.15s;
+        }
+        .swift-side-btn:active { transform: scale(0.9); }
+        .swift-side-btn .icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+        .swift-side-btn .count {
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .swift-side-btn .icon.liked {
+            background: var(--accent-primary);
+            box-shadow: 0 0 15px var(--accent-primary-glow);
+        }
+
+        .swift-back-btn {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 10;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .swift-loader {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            display: none;
+        }
+    </style>
+</head>
+<body class="dark swift-mode">
+
+<a href="/" class="swift-back-btn">←</a>
+
+<div class="swift-container" id="swiftContainer">
+    {% for post in posts %}
+    <div class="swift-video-card" data-post-id="{{ post.id }}">
+        {% for file in post.files %}
+        {% if file.file_type == 'video' %}
+        <video src="{{ file.file_path }}" loop playsinline preload="metadata" muted></video>
+        {% endif %}
+        {% endfor %}
+
+        <div class="swift-overlay">
+            <div class="swift-author">
+                <a href="/profile/{{ post.user.username }}">@{{ post.user.username }}</a>
+            </div>
+            {% if post.content %}
+            <div class="swift-text">{{ post.content[:150] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="swift-sidebar">
+            <div class="swift-side-btn" onclick="swiftReact({{ post.id }}, this)">
+                <div class="icon" id="swiftLike{{ post.id }}">
+                    {% if post.id in user_reactions %}❤️{% else %}🤍{% endif %}
+                </div>
+                <span class="count" id="swiftLikeCount{{ post.id }}">{{ post.reactions|length }}</span>
+            </div>
+
+            <a href="/post/{{ post.id }}" class="swift-side-btn" style="text-decoration:none;color:white;">
+                <div class="icon">💬</div>
+                <span class="count">{{ post.comments|length }}</span>
+            </a>
+
+            <div class="swift-side-btn" onclick="copyPostLink({{ post.id }})">
+                <div class="icon">🔗</div>
+                <span class="count">Подел.</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if posts|length == 0 %}
+    <div class="swift-video-card" style="display:flex;align-items:center;justify-content:center;flex-direction:column;color:white;text-align:center;">
+        <div style="font-size:4rem;margin-bottom:16px;">🌀</div>
+        <div style="font-size:1.2rem;font-weight:700;">Нет видео</div>
+        <div style="font-size:0.85rem;opacity:0.7;margin-top:8px;">Загрузите первое видео в ленту!</div>
+    </div>
+    {% endif %}
+
+    <div class="swift-loader" id="swiftLoader">
+        <div class="loading-spinner"></div>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+<script>
+// ============ SWIFT LOGIC ============
+const swiftContainer = document.getElementById('swiftContainer');
+let swiftOffset = {{ posts|length }};
+let swiftLoading = false;
+let swiftHasMore = true;
+
+// Автовоспроизведение видимого видео
+const videoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        const video = entry.target.querySelector('video');
+        if (!video) return;
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            video.muted = false;
+            video.play().catch(() => {});
+        } else {
+            video.pause();
+            video.muted = true;
+        }
+    });
+}, { threshold: [0.6] });
+
+document.querySelectorAll('.swift-video-card').forEach(card => videoObserver.observe(card));
+
+// Клик по видео — play/pause
+document.querySelectorAll('.swift-video-card video').forEach(video => {
+    video.addEventListener('click', () => {
+        if (video.paused) { video.muted = false; video.play(); }
+        else { video.pause(); }
+    });
+});
+
+// Бесконечный скролл
+swiftContainer.addEventListener('scroll', () => {
+    if (swiftLoading || !swiftHasMore) return;
+    const bottom = swiftContainer.scrollHeight - swiftContainer.scrollTop - swiftContainer.clientHeight;
+    if (bottom < 500) loadMoreSwift();
+});
+
+function loadMoreSwift() {
+    swiftLoading = true;
+    document.getElementById('swiftLoader').style.display = 'block';
+    fetch('/api/swift?offset=' + swiftOffset)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('swiftLoader').style.display = 'none';
+            if (!data.posts || data.posts.length === 0) {
+                swiftHasMore = false;
+                return;
+            }
+            data.posts.forEach(post => {
+                const videoFile = post.files.find(f => f.type === 'video');
+                if (!videoFile) return;
+                const card = document.createElement('div');
+                card.className = 'swift-video-card';
+                card.dataset.postId = post.id;
+                card.innerHTML = `
+                    <video src="${videoFile.path}" loop playsinline preload="metadata" muted></video>
+                    <div class="swift-overlay">
+                        <div class="swift-author"><a href="/profile/${post.author.username}">@${post.author.username}</a></div>
+                        ${post.content ? '<div class="swift-text">' + post.content.substring(0, 150) + '</div>' : ''}
+                    </div>
+                    <div class="swift-sidebar">
+                        <div class="swift-side-btn" onclick="swiftReact(${post.id}, this)">
+                            <div class="icon" id="swiftLike${post.id}">${post.user_reaction || '🤍'}</div>
+                            <span class="count" id="swiftLikeCount${post.id}">${Object.values(post.reactions || {}).reduce((a,b) => a+b, 0)}</span>
+                        </div>
+                        <a href="/post/${post.id}" class="swift-side-btn" style="text-decoration:none;color:white;">
+                            <div class="icon">💬</div>
+                            <span class="count">${post.comments_count || 0}</span>
+                        </a>
+                        <div class="swift-side-btn" onclick="copyPostLink(${post.id})">
+                            <div class="icon">🔗</div>
+                            <span class="count">Подел.</span>
+                        </div>
+                    </div>`;
+                videoObserver.observe(card);
+                const video = card.querySelector('video');
+                video.addEventListener('click', () => {
+                    if (video.paused) { video.muted = false; video.play(); }
+                    else { video.pause(); }
+                });
+                swiftContainer.insertBefore(card, document.getElementById('swiftLoader'));
+            });
+            swiftOffset += data.posts.length;
+            swiftLoading = false;
+        })
+        .catch(() => {
+            document.getElementById('swiftLoader').style.display = 'none';
+            swiftLoading = false;
+        });
+}
+
+// Реакция в Swift
+function swiftReact(postId, btn) {
+    const icon = document.getElementById('swiftLike' + postId);
+    const count = document.getElementById('swiftLikeCount' + postId);
+    const isLiked = icon.textContent === '❤️';
+    const emoji = isLiked ? '❤️' : '❤️';
+
+    fetch('/post/' + postId + '/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji: emoji })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data) return;
+        const total = Object.values(data.reactions || {}).reduce((a,b) => a+b, 0);
+        if (data.user_reaction) {
+            icon.textContent = '❤️';
+            icon.classList.add('liked');
+            btn.querySelector('.icon').classList.add('liked');
+            // Анимация лайка
+            icon.style.transform = 'scale(1.4)';
+            setTimeout(() => icon.style.transform = 'scale(1)', 200);
+        } else {
+            icon.textContent = '🤍';
+            icon.classList.remove('liked');
+            btn.querySelector('.icon').classList.remove('liked');
+        }
+        count.textContent = total;
+    });
+}
+</script>
+
+</body>
+</html>

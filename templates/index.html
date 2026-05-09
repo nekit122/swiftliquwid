@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Фильтр ленты -->
+<div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding:4px 0;scrollbar-width:none;">
+    <a href="/?filter=all" class="profile-tab {% if filter_type == 'all' %}active{% endif %}">Все</a>
+    <a href="/?filter=photo" class="profile-tab {% if filter_type == 'photo' %}active{% endif %}">📷 Фото</a>
+    <a href="/?filter=video" class="profile-tab {% if filter_type == 'video' %}active{% endif %}">🎬 Видео</a>
+</div>
+
+<!-- Форма создания поста -->
+<div class="glass-card" style="margin-bottom:16px;">
+    <form method="POST" action="/post/create" enctype="multipart/form-data" id="postForm">
+        <textarea name="content" placeholder="Что нового? 💭" style="margin-bottom:10px;min-height:60px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:12px;padding:10px 14px;color:var(--text-primary);width:100%;resize:vertical;" id="postContent"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <label class="btn btn-sm btn-secondary" style="cursor:pointer;">
+                    📎 Файлы
+                    <input type="file" name="files" multiple accept="*/*" style="display:none;" id="fileInput">
+                </label>
+                <span id="fileCount" style="font-size:0.75rem;color:var(--text-tertiary);"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Опубликовать</button>
+        </div>
+    </form>
+</div>
+
+<!-- Лента постов -->
+<div id="postsContainer">
+    {% for post in posts %}
+    <article class="glass-card post-card" data-post-id="{{ post.id }}">
+        <div class="post-header">
+            <a href="/profile/{{ post.user.username }}">
+                {% if post.user.avatar %}
+                <img src="{{ post.user.avatar }}" class="avatar avatar-sm" alt="{{ post.user.username }}" loading="lazy">
+                {% else %}
+                <span class="avatar avatar-sm">{{ post.user.username[0]|upper }}</span>
+                {% endif %}
+            </a>
+            <div style="flex:1;min-width:0;">
+                <a href="/profile/{{ post.user.username }}" class="post-username">{{ post.user.username }}</a>
+                <div class="post-date">
+                    {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    {% if post.edited_at %}(изменено){% endif %}
+                </div>
+            </div>
+            <a href="/post/{{ post.id }}" style="color:var(--text-tertiary);font-size:1.1rem;" title="Открыть пост">🔗</a>
+        </div>
+
+        {% if post.content %}
+        <div class="post-content">{{ post.content }}</div>
+        {% endif %}
+
+        {% if post.files %}
+        <div class="post-files">
+            {% for file in post.files %}
+                {% if file.file_type == 'image' %}
+                <img src="{{ file.file_path }}" alt="Изображение" loading="lazy" class="lazy-img" onload="this.classList.add('loaded')">
+                {% elif file.file_type == 'video' %}
+                <video controls preload="metadata" style="width:100%;border-radius:12px;max-height:400px;">
+                    <source src="{{ file.file_path }}">
+                </video>
+                {% else %}
+                <a href="{{ file.file_path }}" class="post-file-doc" download>📄 {{ file.file_path.split('/')[-1] }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if post.poll %}
+        <div class="poll-container">
+            <div class="poll-question">{{ post.poll.question }}</div>
+            {% set total_votes = post.poll.votes.values()|sum|int if post.poll.votes else 0 %}
+            {% for option in post.poll.options %}
+            {% set opt_key = loop.index0|string %}
+            {% set opt_votes = (post.poll.votes or {}).get(opt_key, [])|length %}
+            {% set percent = (opt_votes / total_votes * 100)|round|int if total_votes > 0 else 0 %}
+            <div class="poll-option" onclick="votePoll({{ post.poll.id }}, {{ loop.index0 }}, this)">
+                <div class="poll-option-bar" style="width:{{ percent }}%;"></div>
+                <span class="poll-option-text">{{ option }}</span>
+                <span class="poll-option-percent">{{ percent }}%</span>
+            </div>
+            {% endfor %}
+            <div class="poll-total" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:4px;">{{ total_votes }} голосов</div>
+        </div>
+        {% endif %}
+
+        <div class="post-actions">
+            <div class="reactions-container" data-post-id="{{ post.id }}">
+                <button class="reaction-btn {% if post.id in user_reactions %}active{% endif %}" onclick="toggleReactionPicker(event, {{ post.id }})">
+                    {% if post.id in user_reactions %}{{ user_reactions[post.id] }}{% else %}❤️{% endif %}
+                    <span class="reaction-count">
+                        {% set total = post.reactions|length %}
+                        {{ total if total > 0 else '' }}
+                    </span>
+                </button>
+                <div class="reaction-picker" id="reactionPicker{{ post.id }}">
+                    <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '❤️', event)">❤️</span>
+                    <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😂', event)">😂</span>
+                    <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😮', event)">😮</span>
+                    <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😢', event)">😢</span>
+                    <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😡', event)">😡</span>
+                    <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '👍', event)">👍</span>
+                </div>
+            </div>
+
+            <a href="/post/{{ post.id }}" class="reaction-btn" style="text-decoration:none;">
+                💬 {{ post.comments|length if post.comments else '' }}
+            </a>
+
+            <button class="reaction-btn" onclick="toggleBookmark({{ post.id }}, this)">
+                📑
+            </button>
+
+            <button class="reaction-btn" onclick="copyPostLink({{ post.id }})" title="Копировать ссылку">📋</button>
+
+            {% if user and post.user_id == user.id %}
+            <button class="reaction-btn" onclick="editPost({{ post.id }})" title="Редактировать">✏️</button>
+            <form method="POST" action="/post/{{ post.id }}/delete" style="display:inline;" onsubmit="return confirm('Удалить пост?');">
+                <button type="submit" class="reaction-btn" style="color:var(--danger);">🗑</button>
+            </form>
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+
+    {% if posts|length == 0 %}
+    <div class="empty-state">
+        <div class="empty-state-icon">💠</div>
+        <div class="empty-state-title">Лента пуста</div>
+        <div class="empty-state-text">Подпишитесь на пользователей или создайте свой первый пост!</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Сенсор для бесконечного скролла -->
+<div class="sentinel" id="scrollSentinel"></div>
+<div id="loadingIndicator" style="text-align:center;padding:16px;display:none;">
+    <div class="loading-spinner" style="margin:0 auto;"></div>
+</div>
+
+{% endblock %}

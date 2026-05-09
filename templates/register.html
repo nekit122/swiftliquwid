@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>💠 Регистрация — NVTULKA</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark">
+    <main class="container" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding-bottom:0;">
+        <div style="width:100%;max-width:400px;text-align:center;">
+            <div style="font-size:4rem;margin-bottom:12px;">💠</div>
+            <h1 style="font-size:2rem;font-weight:800;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;">NVTULKA</h1>
+            <p style="color:var(--text-tertiary);margin-bottom:28px;">Создание аккаунта</p>
+
+            <form method="POST" action="/register" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="text" name="username" placeholder="Имя пользователя" required minlength="2" maxlength="50">
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Пароль" required minlength="4">
+                <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;">Зарегистрироваться 🚀</button>
+            </form>
+
+            <p style="margin-top:20px;color:var(--text-tertiary);">
+                Уже есть аккаунт? <a href="/login">Войти</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

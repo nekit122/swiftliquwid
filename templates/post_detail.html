@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block content %}
+
+<article class="glass-card" style="margin-bottom:16px;">
+    <div class="post-header">
+        <a href="/profile/{{ post.user.username }}">
+            {% if post.user.avatar %}
+            <img src="{{ post.user.avatar }}" class="avatar" alt="{{ post.user.username }}" loading="lazy">
+            {% else %}
+            <span class="avatar">{{ post.user.username[0]|upper }}</span>
+            {% endif %}
+        </a>
+        <div style="flex:1;">
+            <a href="/profile/{{ post.user.username }}" class="post-username">{{ post.user.username }}</a>
+            <div class="post-date">
+                {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}
+                {% if post.edited_at %}(изменено){% endif %}
+            </div>
+        </div>
+        <button class="reaction-btn" onclick="copyPostLink({{ post.id }})" title="Копировать ссылку">📋</button>
+    </div>
+
+    {% if post.content %}
+    <div class="post-content">{{ post.content }}</div>
+    {% endif %}
+
+    {% if post.files %}
+    <div class="post-files">
+        {% for file in post.files %}
+            {% if file.file_type == 'image' %}
+            <img src="{{ file.file_path }}" alt="" loading="lazy" class="lazy-img" onload="this.classList.add('loaded')">
+            {% elif file.file_type == 'video' %}
+            <video controls preload="metadata" style="width:100%;border-radius:12px;max-height:400px;">
+                <source src="{{ file.file_path }}">
+            </video>
+            {% else %}
+            <a href="{{ file.file_path }}" class="post-file-doc" download>📄 {{ file.file_path.split('/')[-1] }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if post.poll %}
+    <div class="poll-container">
+        <div class="poll-question">{{ post.poll.question }}</div>
+        {% set total_votes = post.poll.votes.values()|sum|int if post.poll.votes else 0 %}
+        {% for option in post.poll.options %}
+        {% set opt_key = loop.index0|string %}
+        {% set opt_votes = (post.poll.votes or {}).get(opt_key, [])|length %}
+        {% set percent = (opt_votes / total_votes * 100)|round|int if total_votes > 0 else 0 %}
+        <div class="poll-option" onclick="votePoll({{ post.poll.id }}, {{ loop.index0 }}, this)">
+            <div class="poll-option-bar" style="width:{{ percent }}%;"></div>
+            <span class="poll-option-text">{{ option }}</span>
+            <span class="poll-option-percent">{{ percent }}%</span>
+        </div>
+        {% endfor %}
+        <div class="poll-total" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:4px;">{{ total_votes }} голосов</div>
+    </div>
+    {% endif %}
+
+    <div class="post-actions" style="margin-top:12px;">
+        <div class="reactions-container" data-post-id="{{ post.id }}">
+            <button class="reaction-btn {% if user_reaction %}active{% endif %}" onclick="toggleReactionPicker(event, {{ post.id }})">
+                {{ user_reaction or '❤️' }}
+                <span class="reaction-count">{{ post.reactions|length if post.reactions else '' }}</span>
+            </button>
+            <div class="reaction-picker" id="reactionPicker{{ post.id }}">
+                <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '❤️', event)">❤️</span>
+                <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😂', event)">😂</span>
+                <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😮', event)">😮</span>
+                <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😢', event)">😢</span>
+                <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '😡', event)">😡</span>
+                <span class="reaction-picker-emoji" onclick="react({{ post.id }}, '👍', event)">👍</span>
+            </div>
+        </div>
+        <button class="reaction-btn" onclick="toggleBookmark({{ post.id }}, this)">
+            {% if user and post.bookmarks|selectattr('user_id', 'equalto', user.id)|list|length > 0 %}🔖{% else %}📑{% endif %}
+        </button>
+    </div>
+</article>
+
+<!-- Комментарии -->
+<div class="glass-card" style="margin-bottom:16px;">
+    <h3 style="font-weight:600;margin-bottom:12px;">💬 Комментарии ({{ post.comments|length }})</h3>
+
+    {% for comment in post.comments %}
+    <div class="comment-item">
+        <a href="/profile/{{ comment.comment_user.username }}">
+            {% if comment.comment_user.avatar %}
+            <img src="{{ comment.comment_user.avatar }}" class="avatar avatar-sm" alt="" loading="lazy">
+            {% else %}
+            <span class="avatar avatar-sm">{{ comment.comment_user.username[0]|upper }}</span>
+            {% endif %}
+        </a>
+        <div class="comment-body">
+            <span class="comment-username">{{ comment.comment_user.username }}</span>
+            {% if comment.is_voice %}
+            <div class="voice-message" onclick="toggleVoice(this)" data-src="{{ comment.voice_path }}">
+                <span>🔊</span>
+                <div class="voice-wave"><span></span><span></span><span></span><span></span><span></span></div>
+                <span style="font-size:10px;">Голосовое</span>
+            </div>
+            {% else %}
+            <div class="comment-text">{{ comment.content }}</div>
+            {% endif %}
+            <div class="comment-date">{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+        </div>
+        {% if user and user.id == post.user_id %}
+        <form method="POST" action="/post/{{ post.id }}/comment/{{ comment.id }}/delete" style="display:inline;">
+            <button type="submit" class="comment-delete" title="Удалить">✕</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if post.comments|length == 0 %}
+    <p style="color:var(--text-tertiary);text-align:center;padding:20px;">Нет комментариев. Будьте первым!</p>
+    {% endif %}
+</div>
+
+<!-- Форма комментария -->
+{% if user %}
+<div class="glass-card" style="margin-bottom:16px;">
+    <form method="POST" action="/post/{{ post.id }}/comment" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:8px;">
+        <textarea name="content" placeholder="Написать комментарий..." style="min-height:50px;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:12px;padding:10px;color:var(--text-primary);resize:vertical;"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <label class="btn btn-sm btn-secondary" style="cursor:pointer;">
+                🎤 Голосовой
+                <input type="file" name="voice" accept="audio/*" capture style="display:none;">
+            </label>
+            <button type="submit" class="btn btn-sm btn-primary">Отправить</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- Просмотры (только для автора) -->
+{% if user and post.user_id == user.id and views_data %}
+<div class="glass-card">
+    <h3 style="font-weight:600;margin-bottom:10px;">👁 Просмотры ({{ views_data|length }})</h3>
+    {% for vd in views_data[:20] %}
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle);">
+        {% if vd.avatar %}
+        <img src="{{ vd.avatar }}" class="avatar avatar-sm" alt="">
+        {% else %}
+        <span class="avatar avatar-sm">{{ vd.username[0]|upper if vd.username else '?' }}</span>
+        {% endif %}
+        <span style="font-size:0.85rem;">{{ vd.username or 'Неизвестный' }}</span>
+        <span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:auto;">{{ vd.viewed_at }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
