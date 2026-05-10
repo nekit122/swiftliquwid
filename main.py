@@ -14,6 +14,104 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, Da
 from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship
 import bcrypt
 
+# ============ КАПЧА ============
+import random
+import string
+from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+# Хранилище капч (в памяти)
+captcha_store = {}
+
+def generate_captcha_text():
+    """Генерирует случайный текст для капчи"""
+    chars = string.ascii_uppercase + string.digits
+    # Убираем похожие символы
+    chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
+    return ''.join(random.choices(chars, k=5))
+
+def create_captcha_image(text):
+    """Создаёт изображение капчи в стиле NVTULKA"""
+    width, height = 200, 70
+    # Фон — тёмный как в неоновой теме
+    img = Image.new('RGB', (width, height), '#0a0a0f')
+    draw = ImageDraw.Draw(img)
+
+    # Рисуем "стеклянные" разводы на фоне
+    for _ in range(20):
+        x1 = random.randint(0, width)
+        y1 = random.randint(0, height)
+        x2 = x1 + random.randint(-40, 40)
+        y2 = y1 + random.randint(-20, 20)
+        color = (random.randint(100, 180), random.randint(50, 120), random.randint(150, 220))
+        draw.line([(x1, y1), (x2, y2)], fill=color, width=random.randint(1, 3))
+
+    # Добавляем шум
+    for _ in range(100):
+        x = random.randint(0, width)
+        y = random.randint(0, height)
+        draw.point((x, y), fill=(random.randint(150, 255), random.randint(100, 200), random.randint(200, 255)))
+
+    # Рисуем буквы с неоновым эффектом
+    try:
+        font = ImageFont.truetype("arial.ttf", 32)
+    except:
+        font = ImageFont.load_default()
+
+    for i, char in enumerate(text):
+        x = 25 + i * 32 + random.randint(-5, 5)
+        y = random.randint(10, 20)
+        # Неоновая тень (фиолетовая)
+        draw.text((x+2, y+2), char, font=font, fill=(179, 71, 234))
+        # Основной текст (белый)
+        draw.text((x, y), char, font=font, fill=(255, 255, 255))
+
+    # Размытие для эффекта стекла
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
+
+    return img
+
+@app.get("/captcha/generate")
+async def generate_captcha(request: Request):
+    """Генерирует новую капчу"""
+    captcha_id = uuid.uuid4().hex[:16]
+    text = generate_captcha_text()
+    captcha_store[captcha_id] = {
+        "text": text,
+        "created_at": datetime.utcnow()
+    }
+    # Очистка старых капч (старше 10 минут)
+    now = datetime.utcnow()
+    expired = [cid for cid, data in captcha_store.items() if (now - data["created_at"]).seconds > 600]
+    for cid in expired:
+        del captcha_store[cid]
+
+    img = create_captcha_image(text)
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+
+    response = StreamingResponse(buf, media_type="image/png")
+    response.set_cookie(key="captcha_id", value=captcha_id, max_age=600, httponly=True)
+    return response
+
+@app.post("/captcha/verify")
+async def verify_captcha(request: Request):
+    """Проверяет капчу"""
+    data = await request.json()
+    user_input = data.get("captcha", "").upper().strip()
+    captcha_id = request.cookies.get("captcha_id")
+
+    if not captcha_id or captcha_id not in captcha_store:
+        return JSONResponse({"valid": False, "error": "Капча устарела"})
+
+    stored = captcha_store[captcha_id]
+    if user_input == stored["text"]:
+        del captcha_store[captcha_id]
+        return JSONResponse({"valid": True})
+    else:
+        return JSONResponse({"valid": False, "error": "Неверный код"})
+
 # ============ НАСТРОЙКИ БД ============
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nvtulka.db")
 
