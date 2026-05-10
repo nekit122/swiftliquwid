@@ -317,7 +317,8 @@ def format_post_json(post, user, viewed_ids=None):
         files_data.append({
             "path": f"/file/post/{f.id}",
             "type": f.file_type,
-            "filename": f.filename
+            "filename": f.filename,
+            "mime": f.mime_type
         })
     reactions = {}
     for r in post.reactions:
@@ -346,49 +347,68 @@ def format_post_json(post, user, viewed_ids=None):
 async def get_avatar(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.avatar_data:
-        return StreamingResponse(BytesIO(user.avatar_data), media_type=user.avatar_mime or "image/jpeg")
+        return Response(content=user.avatar_data, media_type=user.avatar_mime or "image/jpeg")
     return HTMLResponse("")
 
-@app.get("/file/background/{user_id}")
-async def get_bg(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.bg_data:
-        return StreamingResponse(BytesIO(user.bg_data), media_type=user.bg_mime or "image/jpeg")
-    raise HTTPException(status_code=404)
-
 @app.get("/file/post/{file_id}")
-async def get_post_file(file_id: int, db: Session = Depends(get_db)):
+async def get_post_file(file_id: int, request: Request, db: Session = Depends(get_db)):
     pf = db.query(PostFile).filter(PostFile.id == file_id).first()
     if pf and pf.file_data:
-        return StreamingResponse(BytesIO(pf.file_data), media_type=pf.mime_type)
+        file_size = len(pf.file_data)
+        range_header = request.headers.get("range")
+
+        if range_header:
+            start, end = 0, file_size - 1
+            range_match = range_header.replace("bytes=", "").split("-")
+            start = int(range_match[0]) if range_match[0] else 0
+            end = int(range_match[1]) if len(range_match) > 1 and range_match[1] else file_size - 1
+            if start >= file_size:
+                return Response(status_code=416)
+            chunk = pf.file_data[start:end+1]
+            return Response(
+                content=chunk,
+                status_code=206,
+                media_type=pf.mime_type,
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(len(chunk))
+                }
+            )
+
+        return Response(
+            content=pf.file_data,
+            media_type=pf.mime_type,
+            headers={"Accept-Ranges": "bytes", "Content-Length": str(file_size)}
+        )
     raise HTTPException(status_code=404)
 
 @app.get("/file/story/{story_id}")
 async def get_story_file(story_id: int, db: Session = Depends(get_db)):
     story = db.query(Story).filter(Story.id == story_id).first()
     if story and story.file_data:
-        return StreamingResponse(BytesIO(story.file_data), media_type=story.file_mime or "image/jpeg")
+        return Response(content=story.file_data, media_type=story.file_mime or "image/jpeg")
     raise HTTPException(status_code=404)
 
 @app.get("/file/voice_comment/{comment_id}")
 async def get_voice_comment(comment_id: int, db: Session = Depends(get_db)):
     comment = db.query(Comment).filter(Comment.id == comment_id).first()
     if comment and comment.voice_data:
-        return StreamingResponse(BytesIO(comment.voice_data), media_type="audio/webm")
+        return Response(content=comment.voice_data, media_type="audio/webm")
     raise HTTPException(status_code=404)
 
 @app.get("/file/chat_voice/{msg_id}")
 async def get_chat_voice(msg_id: int, db: Session = Depends(get_db)):
     msg = db.query(ChatMessage).filter(ChatMessage.id == msg_id).first()
     if msg and msg.voice_data:
-        return StreamingResponse(BytesIO(msg.voice_data), media_type="audio/webm")
+        return Response(content=msg.voice_data, media_type="audio/webm")
     raise HTTPException(status_code=404)
 
 @app.get("/file/chat_file/{msg_id}")
 async def get_chat_file(msg_id: int, db: Session = Depends(get_db)):
     msg = db.query(ChatMessage).filter(ChatMessage.id == msg_id).first()
     if msg and msg.file_data:
-        return StreamingResponse(BytesIO(msg.file_data), media_type="application/octet-stream")
+        return Response(content=msg.file_data, media_type="application/octet-stream")
     raise HTTPException(status_code=404)
 
 # ============ ГЛАВНАЯ ============
@@ -507,9 +527,26 @@ async def create_post(request: Request, db: Session = Depends(get_db), content: 
     for file in files:
         if file.filename:
             ext = Path(file.filename).suffix.lower()
-            ft = "image" if ext in [".jpg",".jpeg",".png",".gif",".webp",".svg"] else "video" if ext in [".mp4",".webm",".mov",".avi"] else "document"
+            if ext in [".jpg",".jpeg",".png",".gif",".webp",".svg"]:
+                ft = "image"
+            elif ext in [".mp4",".webm",".mov",".avi",".mkv"]:
+                ft = "video"
+            else:
+                ft = "document"
+            mime = file.content_type or (
+                "video/mp4" if ext == ".mp4" else
+                "video/webm" if ext == ".webm" else
+                "video/quicktime" if ext == ".mov" else
+                "video/x-msvideo" if ext == ".avi" else
+                "video/x-matroska" if ext == ".mkv" else
+                "image/jpeg" if ext in [".jpg",".jpeg"] else
+                "image/png" if ext == ".png" else
+                "image/gif" if ext == ".gif" else
+                "image/webp" if ext == ".webp" else
+                "application/octet-stream"
+            )
             data = await file.read()
-            db.add(PostFile(post_id=post.id, file_data=data, filename=file.filename, file_type=ft, mime_type=file.content_type or "application/octet-stream"))
+            db.add(PostFile(post_id=post.id, file_data=data, filename=file.filename, file_type=ft, mime_type=mime))
     db.commit()
     return RedirectResponse(url="/", status_code=302)
 
