@@ -1,6 +1,8 @@
 import os
 import json
 import uuid
+import random
+import string
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List
@@ -13,104 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, DateTime, ForeignKey, LargeBinary, JSON as SAJSON
 from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship
 import bcrypt
-
-# ============ КАПЧА ============
-import random
-import string
-from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-
-# Хранилище капч (в памяти)
-captcha_store = {}
-
-def generate_captcha_text():
-    """Генерирует случайный текст для капчи"""
-    chars = string.ascii_uppercase + string.digits
-    # Убираем похожие символы
-    chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
-    return ''.join(random.choices(chars, k=5))
-
-def create_captcha_image(text):
-    """Создаёт изображение капчи в стиле NVTULKA"""
-    width, height = 200, 70
-    # Фон — тёмный как в неоновой теме
-    img = Image.new('RGB', (width, height), '#0a0a0f')
-    draw = ImageDraw.Draw(img)
-
-    # Рисуем "стеклянные" разводы на фоне
-    for _ in range(20):
-        x1 = random.randint(0, width)
-        y1 = random.randint(0, height)
-        x2 = x1 + random.randint(-40, 40)
-        y2 = y1 + random.randint(-20, 20)
-        color = (random.randint(100, 180), random.randint(50, 120), random.randint(150, 220))
-        draw.line([(x1, y1), (x2, y2)], fill=color, width=random.randint(1, 3))
-
-    # Добавляем шум
-    for _ in range(100):
-        x = random.randint(0, width)
-        y = random.randint(0, height)
-        draw.point((x, y), fill=(random.randint(150, 255), random.randint(100, 200), random.randint(200, 255)))
-
-    # Рисуем буквы с неоновым эффектом
-    try:
-        font = ImageFont.truetype("arial.ttf", 32)
-    except:
-        font = ImageFont.load_default()
-
-    for i, char in enumerate(text):
-        x = 25 + i * 32 + random.randint(-5, 5)
-        y = random.randint(10, 20)
-        # Неоновая тень (фиолетовая)
-        draw.text((x+2, y+2), char, font=font, fill=(179, 71, 234))
-        # Основной текст (белый)
-        draw.text((x, y), char, font=font, fill=(255, 255, 255))
-
-    # Размытие для эффекта стекла
-    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
-
-    return img
-
-@app.get("/captcha/generate")
-async def generate_captcha(request: Request):
-    """Генерирует новую капчу"""
-    captcha_id = uuid.uuid4().hex[:16]
-    text = generate_captcha_text()
-    captcha_store[captcha_id] = {
-        "text": text,
-        "created_at": datetime.utcnow()
-    }
-    # Очистка старых капч (старше 10 минут)
-    now = datetime.utcnow()
-    expired = [cid for cid, data in captcha_store.items() if (now - data["created_at"]).seconds > 600]
-    for cid in expired:
-        del captcha_store[cid]
-
-    img = create_captcha_image(text)
-    buf = BytesIO()
-    img.save(buf, format='PNG')
-    buf.seek(0)
-
-    response = StreamingResponse(buf, media_type="image/png")
-    response.set_cookie(key="captcha_id", value=captcha_id, max_age=600, httponly=True)
-    return response
-
-@app.post("/captcha/verify")
-async def verify_captcha(request: Request):
-    """Проверяет капчу"""
-    data = await request.json()
-    user_input = data.get("captcha", "").upper().strip()
-    captcha_id = request.cookies.get("captcha_id")
-
-    if not captcha_id or captcha_id not in captcha_store:
-        return JSONResponse({"valid": False, "error": "Капча устарела"})
-
-    stored = captcha_store[captcha_id]
-    if user_input == stored["text"]:
-        del captcha_store[captcha_id]
-        return JSONResponse({"valid": True})
-    else:
-        return JSONResponse({"valid": False, "error": "Неверный код"})
 
 # ============ НАСТРОЙКИ БД ============
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nvtulka.db")
@@ -129,6 +34,71 @@ Base = declarative_base()
 app = FastAPI(title="NVTULKA 💠", version="3.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# ============ КАПЧА ============
+captcha_store = {}
+
+def generate_captcha_text():
+    chars = string.ascii_uppercase + string.digits
+    chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
+    return ''.join(random.choices(chars, k=5))
+
+def create_captcha_image(text):
+    width, height = 200, 70
+    img = Image.new('RGB', (width, height), '#0a0a0f')
+    draw = ImageDraw.Draw(img)
+    for _ in range(20):
+        x1 = random.randint(0, width)
+        y1 = random.randint(0, height)
+        x2 = x1 + random.randint(-40, 40)
+        y2 = y1 + random.randint(-20, 20)
+        color = (random.randint(100, 180), random.randint(50, 120), random.randint(150, 220))
+        draw.line([(x1, y1), (x2, y2)], fill=color, width=random.randint(1, 3))
+    for _ in range(100):
+        x = random.randint(0, width)
+        y = random.randint(0, height)
+        draw.point((x, y), fill=(random.randint(150, 255), random.randint(100, 200), random.randint(200, 255)))
+    try:
+        font = ImageFont.truetype("arial.ttf", 32)
+    except:
+        font = ImageFont.load_default()
+    for i, char in enumerate(text):
+        x = 25 + i * 32 + random.randint(-5, 5)
+        y = random.randint(10, 20)
+        draw.text((x+2, y+2), char, font=font, fill=(179, 71, 234))
+        draw.text((x, y), char, font=font, fill=(255, 255, 255))
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
+    return img
+
+@app.get("/captcha/generate")
+async def generate_captcha(request: Request, response: Response):
+    captcha_id = uuid.uuid4().hex[:16]
+    text = generate_captcha_text()
+    captcha_store[captcha_id] = {"text": text, "created_at": datetime.utcnow()}
+    now = datetime.utcnow()
+    expired = [cid for cid, data in captcha_store.items() if (now - data["created_at"]).seconds > 600]
+    for cid in expired:
+        del captcha_store[cid]
+    img = create_captcha_image(text)
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    resp = StreamingResponse(buf, media_type="image/png")
+    resp.set_cookie(key="captcha_id", value=captcha_id, max_age=600, httponly=True)
+    return resp
+
+@app.post("/captcha/verify")
+async def verify_captcha(request: Request):
+    data = await request.json()
+    user_input = data.get("captcha", "").upper().strip()
+    captcha_id = request.cookies.get("captcha_id")
+    if not captcha_id or captcha_id not in captcha_store:
+        return JSONResponse({"valid": False, "error": "Капча устарела"})
+    stored = captcha_store[captcha_id]
+    if user_input == stored["text"]:
+        del captcha_store[captcha_id]
+        return JSONResponse({"valid": True})
+    return JSONResponse({"valid": False, "error": "Неверный код"})
 
 # ============ МОДЕЛИ БД ============
 class User(Base):
@@ -593,10 +563,8 @@ async def react_post(request: Request, post_id: int, db: Session = Depends(get_d
     emoji = data.get("emoji", "")
     existing = db.query(PostReaction).filter(PostReaction.post_id == post_id, PostReaction.user_id == user.id).first()
     if existing:
-        if existing.emoji == emoji:
-            db.delete(existing)
-        else:
-            existing.emoji = emoji
+        if existing.emoji == emoji: db.delete(existing)
+        else: existing.emoji = emoji
     else:
         db.add(PostReaction(post_id=post_id, user_id=user.id, emoji=emoji))
         post = db.query(Post).filter(Post.id == post_id).first()
@@ -615,8 +583,7 @@ async def add_comment(request: Request, post_id: int, db: Session = Depends(get_
     user = get_current_user_optional(request, db)
     if not user: return RedirectResponse(url="/login", status_code=302)
     voice_data = None
-    if voice and voice.filename:
-        voice_data = await voice.read()
+    if voice and voice.filename: voice_data = await voice.read()
     comment = Comment(post_id=post_id, user_id=user.id, content=content, is_voice=voice_data is not None, voice_data=voice_data)
     db.add(comment)
     db.commit()
@@ -631,9 +598,7 @@ async def delete_comment(request: Request, post_id: int, comment_id: int, db: Se
     post = db.query(Post).filter(Post.id == post_id, Post.user_id == user.id).first()
     if not post: return JSONResponse({"error": "Forbidden"}, status_code=403)
     comment = db.query(Comment).filter(Comment.id == comment_id).first()
-    if comment:
-        db.delete(comment)
-        db.commit()
+    if comment: db.delete(comment); db.commit()
     return RedirectResponse(url=f"/post/{post_id}", status_code=302)
 
 # ============ ЗАКЛАДКИ ============
@@ -642,14 +607,8 @@ async def toggle_bookmark(request: Request, post_id: int, db: Session = Depends(
     user = get_current_user_optional(request, db)
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
     existing = db.query(Bookmark).filter(Bookmark.user_id == user.id, Bookmark.post_id == post_id).first()
-    if existing:
-        db.delete(existing)
-        db.commit()
-        return JSONResponse({"status": "removed"})
-    else:
-        db.add(Bookmark(user_id=user.id, post_id=post_id))
-        db.commit()
-        return JSONResponse({"status": "added"})
+    if existing: db.delete(existing); db.commit(); return JSONResponse({"status": "removed"})
+    else: db.add(Bookmark(user_id=user.id, post_id=post_id)); db.commit(); return JSONResponse({"status": "added"})
 
 @app.get("/bookmarks", response_class=HTMLResponse)
 async def bookmarks_page(request: Request, db: Session = Depends(get_db)):
@@ -667,15 +626,8 @@ async def follow_user(request: Request, username: str, db: Session = Depends(get
     target = db.query(User).filter(User.username == username).first()
     if not target or target.id == user.id: return JSONResponse({"error": "Invalid"}, status_code=400)
     existing = db.query(Follow).filter(Follow.follower_id == user.id, Follow.following_id == target.id).first()
-    if existing:
-        db.delete(existing)
-        db.commit()
-        return JSONResponse({"status": "unfollowed"})
-    else:
-        db.add(Follow(follower_id=user.id, following_id=target.id))
-        db.commit()
-        create_notification(db, target.id, user.id, "follow")
-        return JSONResponse({"status": "followed"})
+    if existing: db.delete(existing); db.commit(); return JSONResponse({"status": "unfollowed"})
+    else: db.add(Follow(follower_id=user.id, following_id=target.id)); db.commit(); create_notification(db, target.id, user.id, "follow"); return JSONResponse({"status": "followed"})
 
 @app.get("/followers/{username}", response_class=HTMLResponse)
 async def followers_page(request: Request, username: str, db: Session = Depends(get_db)):
@@ -734,14 +686,9 @@ async def chat_detail(request: Request, chat_id: int, db: Session = Depends(get_
 async def send_message(request: Request, chat_id: int, db: Session = Depends(get_db), content: str = Form(""), voice: UploadFile = File(None), file: UploadFile = File(None)):
     user = get_current_user_optional(request, db)
     if not user: return RedirectResponse(url="/login", status_code=302)
-    voice_data = None
-    file_data = None
-    file_name = ""
-    if voice and voice.filename:
-        voice_data = await voice.read()
-    if file and file.filename:
-        file_data = await file.read()
-        file_name = file.filename
+    voice_data, file_data, file_name = None, None, ""
+    if voice and voice.filename: voice_data = await voice.read()
+    if file and file.filename: file_data = await file.read(); file_name = file.filename
     db.add(ChatMessage(chat_id=chat_id, user_id=user.id, content=content if not voice_data else "🎤 Голосовое", is_voice=voice_data is not None, voice_data=voice_data, file_data=file_data, file_name=file_name))
     db.commit()
     return RedirectResponse(url=f"/chat/{chat_id}", status_code=302)
@@ -785,8 +732,7 @@ async def start_chat(request: Request, username: str, db: Session = Depends(get_
             existing = chat; break
     if existing: return RedirectResponse(url=f"/chat/{existing.id}", status_code=302)
     chat = Chat(is_group=False, created_by=user.id)
-    db.add(chat)
-    db.flush()
+    db.add(chat); db.flush()
     db.add(ChatMember(chat_id=chat.id, user_id=user.id, role="member"))
     db.add(ChatMember(chat_id=chat.id, user_id=target.id, role="member"))
     db.commit()
@@ -810,8 +756,7 @@ async def create_group(request: Request, db: Session = Depends(get_db), name: st
     user = get_current_user_optional(request, db)
     if not user: return RedirectResponse(url="/login", status_code=302)
     chat = Chat(is_group=True, name=name, created_by=user.id)
-    db.add(chat)
-    db.flush()
+    db.add(chat); db.flush()
     db.add(ChatMember(chat_id=chat.id, user_id=user.id, role="creator"))
     for uid in members.split(","):
         if uid.strip().isdigit(): db.add(ChatMember(chat_id=chat.id, user_id=int(uid.strip()), role="member"))
@@ -839,8 +784,7 @@ async def stories_page(request: Request, db: Session = Depends(get_db)):
     if not user: return RedirectResponse(url="/login", status_code=302)
     active = db.query(Story).filter(Story.expires_at > datetime.utcnow()).order_by(Story.created_at.desc()).all()
     su = {}
-    for s in active:
-        su.setdefault(s.user_id, []).append(s)
+    for s in active: su.setdefault(s.user_id, []).append(s)
     users_with = []
     for uid, sts in su.items():
         u = db.query(User).filter(User.id == uid).first()
@@ -964,20 +908,17 @@ async def vote_poll(request: Request, poll_id: int, db: Session = Depends(get_db
     opt = str(data.get("option", 0))
     votes = poll.votes or {}
     for k, v in list(votes.items()):
-        if str(user.id) in [str(x) for x in v]:
-            votes[k] = [x for x in v if str(x) != str(user.id)]
+        if str(user.id) in [str(x) for x in v]: votes[k] = [x for x in v if str(x) != str(user.id)]
     votes.setdefault(opt, [])
-    if str(user.id) not in [str(x) for x in votes[opt]]:
-        votes[opt].append(user.id)
+    if str(user.id) not in [str(x) for x in votes[opt]]: votes[opt].append(user.id)
     poll.votes = votes
     db.commit()
     uv = None
     for k, v in votes.items():
-        if str(user.id) in [str(x) for x in v]:
-            uv = int(k); break
+        if str(user.id) in [str(x) for x in v]: uv = int(k); break
     return JSONResponse({"votes": votes, "user_vote": uv})
 
-# ============ АДМИН-ПАНЕЛЬ (пароли скрыты) ============
+# ============ АДМИН-ПАНЕЛЬ ============
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user_optional(request, db)
@@ -1015,7 +956,7 @@ async def admin_reset(request: Request, user_id: int, db: Session = Depends(get_
     u = db.query(User).filter(User.id == user_id).first()
     if u:
         u.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-        db.add(AdminLog(admin_user_id=int(aid), action="reset_password", target_user_id=user_id, details=f"Новый пароль установлен"))
+        db.add(AdminLog(admin_user_id=int(aid), action="reset_password", target_user_id=user_id, details="Новый пароль установлен"))
         db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=302)
 
