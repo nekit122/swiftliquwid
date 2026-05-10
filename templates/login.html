@@ -5,6 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>💠 Вход — NVTULKA</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .captcha-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .captcha-container img {
+            border-radius: 12px;
+            border: 1px solid var(--border-medium);
+            cursor: pointer;
+            height: 50px;
+            transition: all 0.2s;
+        }
+        .captcha-container img:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px var(--accent-primary-glow);
+        }
+        .captcha-input {
+            flex: 1;
+            text-align: center;
+            font-size: 1.1rem;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        .captcha-refresh {
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .captcha-refresh:hover {
+            transform: rotate(90deg);
+        }
+        .captcha-error {
+            color: var(--danger);
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: none;
+        }
+    </style>
 </head>
 <body class="dark">
     <main class="container" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding-bottom:0;">
@@ -13,9 +56,21 @@
             <h1 style="font-size:2rem;font-weight:800;background:var(--gradient-neon);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;">NVTULKA</h1>
             <p style="color:var(--text-tertiary);margin-bottom:28px;">Жидкое стекло + неон</p>
 
-            <form method="POST" action="/login" style="display:flex;flex-direction:column;gap:14px;">
+            <form method="POST" action="/login" id="loginForm" style="display:flex;flex-direction:column;gap:14px;">
                 <input type="text" name="username" placeholder="Имя пользователя" required autocomplete="username">
                 <input type="password" name="password" placeholder="Пароль" required autocomplete="current-password">
+
+                <!-- Капча -->
+                <div style="text-align:left;">
+                    <label style="font-size:0.8rem;color:var(--text-secondary);">Подтвердите, что вы не бот:</label>
+                    <div class="captcha-container">
+                        <img src="/captcha/generate" alt="Капча" id="captchaImage" onclick="refreshCaptcha()" title="Нажмите для обновления">
+                        <input type="text" class="captcha-input" id="captchaInput" placeholder="Введите код" maxlength="5" autocomplete="off">
+                        <span class="captcha-refresh" onclick="refreshCaptcha()" title="Обновить">🔄</span>
+                    </div>
+                    <div class="captcha-error" id="captchaError">Неверный код, попробуйте ещё раз</div>
+                </div>
+
                 <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;">Войти ✨</button>
             </form>
 
@@ -24,5 +79,37 @@
             </p>
         </div>
     </main>
+
+    <script>
+        function refreshCaptcha() {
+            const img = document.getElementById('captchaImage');
+            img.src = '/captcha/generate?' + Date.now();
+            document.getElementById('captchaInput').value = '';
+            document.getElementById('captchaError').style.display = 'none';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const captchaInput = document.getElementById('captchaInput').value;
+
+            const resp = await fetch('/captcha/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ captcha: captchaInput })
+            });
+            const data = await resp.json();
+
+            if (!data.valid) {
+                document.getElementById('captchaError').style.display = 'block';
+                refreshCaptcha();
+                return;
+            }
+
+            this.submit();
+        });
+
+        refreshCaptcha();
+    </script>
 </body>
 </html>
