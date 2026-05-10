@@ -1,7 +1,6 @@
 import os
 import json
 import uuid
-import base64
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List
@@ -40,7 +39,6 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    real_password = Column(String(255), nullable=False)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_mime = Column(String(50), default="image/jpeg")
     bio = Column(Text, default="")
@@ -248,7 +246,6 @@ def create_notification(db, user_id, from_user_id, n_type, post_id=None, comment
 def format_post_json(post, user, viewed_ids=None):
     files_data = []
     for f in post.files:
-        ext = f.filename.split('.')[-1] if '.' in f.filename else ''
         files_data.append({
             "path": f"/file/post/{f.id}",
             "type": f.file_type,
@@ -282,7 +279,7 @@ async def get_avatar(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.avatar_data:
         return StreamingResponse(BytesIO(user.avatar_data), media_type=user.avatar_mime or "image/jpeg")
-    return RedirectResponse(url="/static/default_avatar.svg", status_code=302)
+    return HTMLResponse("")
 
 @app.get("/file/background/{user_id}")
 async def get_bg(user_id: int, db: Session = Depends(get_db)):
@@ -376,11 +373,11 @@ async def register_page(request: Request):
 @app.post("/register")
 async def register(request: Request, db: Session = Depends(get_db), username: str = Form(...), email: str = Form(...), password: str = Form(...)):
     if db.query(User).filter((User.username == username) | (User.email == email)).first():
-        return HTMLResponse("<script>alert('Уже существует'); window.location.href='/register';</script>")
+        return HTMLResponse("<script>alert('Пользователь уже существует'); window.location.href='/register';</script>")
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-    db.add(User(username=username, email=email, password_hash=hashed, real_password=password, created_at=datetime.utcnow(), last_seen=datetime.utcnow()))
+    db.add(User(username=username, email=email, password_hash=hashed, created_at=datetime.utcnow(), last_seen=datetime.utcnow()))
     db.commit()
-    return HTMLResponse("<script>alert('Успешно!'); window.location.href='/login';</script>")
+    return HTMLResponse("<script>alert('Регистрация успешна!'); window.location.href='/login';</script>")
 
 @app.get("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
@@ -882,7 +879,7 @@ async def vote_poll(request: Request, poll_id: int, db: Session = Depends(get_db
             uv = int(k); break
     return JSONResponse({"votes": votes, "user_vote": uv})
 
-# ============ АДМИН-ПАНЕЛЬ ============
+# ============ АДМИН-ПАНЕЛЬ (пароли скрыты) ============
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user_optional(request, db)
@@ -894,7 +891,7 @@ async def admin_login(request: Request, db: Session = Depends(get_db), password:
     if not user: return RedirectResponse(url="/login", status_code=302)
     if password != "adminpanel1":
         return HTMLResponse("<script>alert('Неверный пароль'); window.location.href='/';</script>")
-    db.add(AdminLog(admin_user_id=user.id, action="login", details="Вход в админку"))
+    db.add(AdminLog(admin_user_id=user.id, action="login", details="Вход в админ-панель"))
     db.commit()
     resp = RedirectResponse(url="/admin/dashboard", status_code=302)
     resp.set_cookie(key="admin_user_id", value=str(user.id), max_age=3600, httponly=True)
@@ -916,46 +913,45 @@ async def admin_dashboard(request: Request, sort: str = Query("date"), search: s
 @app.post("/admin/user/{user_id}/reset_password")
 async def admin_reset(request: Request, user_id: int, db: Session = Depends(get_db), new_password: str = Form(...)):
     aid = request.cookies.get("admin_user_id")
-    if not aid: return RedirectResponse(url="/admin")
+    if not aid: return RedirectResponse(url="/admin", status_code=302)
     u = db.query(User).filter(User.id == user_id).first()
     if u:
         u.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-        u.real_password = new_password
-        db.add(AdminLog(admin_user_id=int(aid), action="reset_password", target_user_id=user_id))
+        db.add(AdminLog(admin_user_id=int(aid), action="reset_password", target_user_id=user_id, details=f"Новый пароль установлен"))
         db.commit()
-    return RedirectResponse(url="/admin/dashboard")
+    return RedirectResponse(url="/admin/dashboard", status_code=302)
 
 @app.post("/admin/user/{user_id}/delete")
 async def admin_delete(request: Request, user_id: int, db: Session = Depends(get_db)):
     aid = request.cookies.get("admin_user_id")
-    if not aid: return RedirectResponse(url="/admin")
+    if not aid: return RedirectResponse(url="/admin", status_code=302)
     u = db.query(User).filter(User.id == user_id).first()
     if u:
-        db.add(AdminLog(admin_user_id=int(aid), action="delete_user", target_user_id=user_id))
+        db.add(AdminLog(admin_user_id=int(aid), action="delete_user", target_user_id=user_id, details=f"Удалён {u.username}"))
         db.delete(u)
         db.commit()
-    return RedirectResponse(url="/admin/dashboard")
+    return RedirectResponse(url="/admin/dashboard", status_code=302)
 
 @app.post("/admin/user/{user_id}/toggle_block")
 async def admin_block(request: Request, user_id: int, db: Session = Depends(get_db)):
     aid = request.cookies.get("admin_user_id")
-    if not aid: return RedirectResponse(url="/admin")
+    if not aid: return RedirectResponse(url="/admin", status_code=302)
     u = db.query(User).filter(User.id == user_id).first()
     if u:
         u.is_blocked = not u.is_blocked
-        db.add(AdminLog(admin_user_id=int(aid), action="block" if u.is_blocked else "unblock", target_user_id=user_id))
+        db.add(AdminLog(admin_user_id=int(aid), action="block" if u.is_blocked else "unblock", target_user_id=user_id, details=f"{u.username}"))
         db.commit()
-    return RedirectResponse(url="/admin/dashboard")
+    return RedirectResponse(url="/admin/dashboard", status_code=302)
 
 @app.post("/admin/mass_notification")
 async def admin_mass(request: Request, db: Session = Depends(get_db), message: str = Form(...)):
     aid = request.cookies.get("admin_user_id")
-    if not aid: return RedirectResponse(url="/admin")
+    if not aid: return RedirectResponse(url="/admin", status_code=302)
     for u in db.query(User).all():
         db.add(Notification(user_id=u.id, from_user_id=int(aid), type="admin_mass", message=message))
     db.add(AdminLog(admin_user_id=int(aid), action="mass_notification", details=message))
     db.commit()
-    return RedirectResponse(url="/admin/dashboard")
+    return RedirectResponse(url="/admin/dashboard", status_code=302)
 
 # ============ ЗАПУСК ============
 if __name__ == "__main__":
